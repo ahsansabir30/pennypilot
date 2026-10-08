@@ -452,13 +452,48 @@ fn list_transactions_from(
         AND (?4 = '' OR instr(lower(COALESCE(t.description, '') || ' ' ||
             COALESCE(t.merchant, '') || ' ' || COALESCE(t.merchant_normalized, '')),
             lower(?4)) > 0)";
-    let total = connection
+    let total = count_filtered_transactions(connection, filter, query, where_clause)?;
+    let transactions = fetch_transactions(
+        connection,
+        filter,
+        query,
+        where_clause,
+        ordering,
+        page_size,
+        offset,
+    )?;
+    Ok(TransactionPage {
+        transactions,
+        total,
+        page: filter.page,
+        page_size: filter.page_size,
+    })
+}
+
+fn count_filtered_transactions(
+    connection: &Connection,
+    filter: &TransactionFilter,
+    query: &str,
+    where_clause: &str,
+) -> WorkspaceResult<u32> {
+    connection
         .query_row(
             &format!("SELECT count(*) FROM transactions t {where_clause}"),
             params![filter.month, filter.kind, filter.category_id, query],
             |row| row.get::<_, u32>(0),
         )
-        .map_err(|_| WorkspaceError::Storage)?;
+        .map_err(|_| WorkspaceError::Storage)
+}
+
+fn fetch_transactions(
+    connection: &Connection,
+    filter: &TransactionFilter,
+    query: &str,
+    where_clause: &str,
+    ordering: &str,
+    page_size: i64,
+    offset: i64,
+) -> WorkspaceResult<Vec<Transaction>> {
     let mut statement = connection
         .prepare(&format!(
             "SELECT t.id, t.account_id, t.category_id, c.name, t.amount_pence,
@@ -495,12 +530,7 @@ fn list_transactions_from(
         .map_err(|_| WorkspaceError::Storage)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| WorkspaceError::Storage)?;
-    Ok(TransactionPage {
-        transactions,
-        total,
-        page: filter.page,
-        page_size: filter.page_size,
-    })
+    Ok(transactions)
 }
 
 fn monthly_summary(connection: &Connection, month: &str) -> WorkspaceResult<MonthlySummary> {
