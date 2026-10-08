@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use zeroize::Zeroizing;
 
+mod finance;
+
 const APP_SERVICE: &str = "com.pennypilot.desktop";
 const RECOVERY_ACCOUNT: &str = "database-recovery-v1";
 const KEY_ENVELOPE_VERSION: u32 = 1;
@@ -42,6 +44,10 @@ enum WorkspaceError {
     Storage,
     #[error("The workspace state is unavailable.")]
     StateUnavailable,
+    #[error("The transaction data is invalid.")]
+    InvalidFinancialInput,
+    #[error("The requested transaction does not exist.")]
+    RecordNotFound,
 }
 
 type WorkspaceResult<T> = Result<T, WorkspaceError>;
@@ -320,6 +326,7 @@ fn open_database(directory: &Path, database_key: &[u8; 32]) -> WorkspaceResult<C
     }
     let connection = Connection::open(path).map_err(|_| WorkspaceError::Storage)?;
     configure_database(&connection, database_key)?;
+    initialize_database(&connection)?;
     Ok(connection)
 }
 
@@ -352,7 +359,8 @@ fn initialize_database(connection: &Connection) -> WorkspaceResult<()> {
              INSERT OR IGNORE INTO schema_migrations (version) VALUES (1);
              COMMIT;",
         )
-        .map_err(|_| WorkspaceError::Storage)
+        .map_err(|_| WorkspaceError::Storage)?;
+    finance::initialize_schema(connection)
 }
 
 fn validate_passphrase(passphrase: &str) -> WorkspaceResult<()> {
@@ -515,7 +523,12 @@ pub fn run() {
             create_workspace_command,
             unlock_workspace_command,
             recover_workspace_command,
-            lock_workspace
+            lock_workspace,
+            finance::list_finance_data,
+            finance::list_transactions,
+            finance::create_transaction,
+            finance::update_transaction_category,
+            finance::delete_transaction
         ])
         .run(tauri::generate_context!())
         .expect("failed to start PennyPilot");

@@ -8,10 +8,38 @@ vi.mock("@tauri-apps/api/core", () => ({
 }));
 
 const invokeMock = vi.mocked(invoke);
+const emptyFinanceData = {
+  summary: {
+    month: new Date().toISOString().slice(0, 7),
+    incomePence: 0,
+    expensePence: 0,
+    refundPence: 0,
+    netCashFlowPence: 0,
+  },
+  history: [],
+  categorySpending: [],
+  accounts: [{ id: 1, name: "Main account", currencyCode: "GBP" }],
+  categories: [
+    { id: 1, name: "Other spending", categoryType: "expense", color: "#8B918C" },
+    { id: 2, name: "Salary", categoryType: "income", color: "#4F8B68" },
+  ],
+};
+const emptyTransactions = {
+  transactions: [],
+  total: 0,
+  page: 0,
+  pageSize: 10,
+};
 
 describe("workspace setup and access", () => {
   beforeEach(() => {
     invokeMock.mockReset();
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "workspace_status") return "locked";
+      if (command === "list_finance_data") return emptyFinanceData;
+      if (command === "list_transactions") return emptyTransactions;
+      return undefined;
+    });
   });
 
   afterEach(() => {
@@ -33,10 +61,8 @@ describe("workspace setup and access", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Create secure workspace/ }));
 
-    await screen.findByRole("heading", {
-      name: "Your private space is unlocked.",
-    });
-    expect(invokeMock).toHaveBeenLastCalledWith("create_workspace_command", {
+    await screen.findByRole("heading", { name: "Financial overview" });
+    expect(invokeMock).toHaveBeenCalledWith("create_workspace_command", {
       passphrase: "a memorable long passphrase",
     });
   });
@@ -59,11 +85,7 @@ describe("workspace setup and access", () => {
     expect(alert.textContent).toContain(
       "The passphrase could not unlock this workspace.",
     );
-    expect(
-      screen.queryByRole("heading", {
-        name: "Your private space is unlocked.",
-      }),
-    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Financial overview" })).toBeNull();
   });
 
   it("uses on-device recovery to replace a forgotten passphrase", async () => {
@@ -87,10 +109,8 @@ describe("workspace setup and access", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Recover and continue/ }));
 
-    await screen.findByRole("heading", {
-      name: "Your private space is unlocked.",
-    });
-    expect(invokeMock).toHaveBeenLastCalledWith(
+    await screen.findByRole("heading", { name: "Financial overview" });
+    expect(invokeMock).toHaveBeenCalledWith(
       "recover_workspace_command",
       { passphrase: "replacement passphrase for workspace" },
     );

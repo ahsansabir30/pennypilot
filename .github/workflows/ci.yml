@@ -29,12 +29,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
-      - name: Install Strawberry Perl for vendored OpenSSL
+      - name: Install OpenSSL for SQLCipher
         if: runner.os == 'Windows'
-        uses: shogo82148/actions-setup-perl@v1
-        with:
-          perl-version: "5.42"
-          distribution: strawberry
+        shell: pwsh
+        run: |
+          & "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install openssl:x64-windows-static-md
+          "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
+          "VCPKGRS_TRIPLET=x64-windows-static-md" >> $env:GITHUB_ENV
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |

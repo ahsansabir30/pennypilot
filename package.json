@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b --pretty false && vite build",
     "preview": "vite preview",
-    "lint": "eslint .",
+    "lint": "eslint src vite.config.ts eslint.config.js",
     "typecheck": "tsc -b --pretty false",
     "test": "vitest run",
     "tauri": "tauri"

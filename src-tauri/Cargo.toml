@@ -28,9 +28,8 @@ hex = "0.4.3"
 thiserror = "2.0.21"
 tempfile = "3.27.0"
 zeroize = "1.9.1"
-rusqlite = { version = "0.40.2", features = ["bundled-sqlcipher-vendored-openssl"] }
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled-sqlcipher"] }
 keyring = "4"
-
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration
 [profile.release]

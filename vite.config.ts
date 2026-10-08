@@ -7,6 +7,9 @@ export default defineConfig(() => ({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    pool: "threads",
+    maxWorkers: 1,
+    fileParallelism: false,
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

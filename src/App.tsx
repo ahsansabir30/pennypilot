@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import { validateNewPassphrase } from "./security";
+import Dashboard from "./Dashboard";
 
 type WorkspaceStatus = "new" | "locked" | "unlocked";
 type FormMode = "create" | "unlock" | "recover";
@@ -85,6 +86,10 @@ function App() {
 
   const isNewPassphrase = mode !== "unlock";
 
+  if (status === "unlocked") {
+    return <Dashboard onLock={() => void lock()} />;
+  }
+
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -146,27 +151,6 @@ function App() {
                   Try again
                 </button>
               </div>
-            </div>
-          ) : status === "unlocked" ? (
-            <div className="unlocked-state">
-              <div className="card-symbol" aria-hidden="true">
-                ✓
-              </div>
-              <span className="eyebrow">Workspace ready</span>
-              <h2>Your private space is unlocked.</h2>
-              <p>
-                Your encrypted workspace is open on this device. Financial
-                summaries will appear here as you add your own data.
-              </p>
-              <button
-                className="primary-button"
-                disabled={busy}
-                onClick={() => void lock()}
-                type="button"
-              >
-                Lock workspace
-              </button>
-              {message && <p className="form-message error">{message}</p>}
             </div>
           ) : (
             <>
