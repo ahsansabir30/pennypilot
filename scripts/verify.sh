@@ -33,7 +33,7 @@ echo "Running Rust lint..."
 cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
 
 echo "Running Rust tests..."
-RUST_MIN_STACK=8388608 cargo test --manifest-path src-tauri/Cargo.toml --all-targets
+cargo test --manifest-path src-tauri/Cargo.toml --all-targets -- --test-threads=1
 
 echo "Building desktop application..."
 npm run tauri build -- --no-bundle
