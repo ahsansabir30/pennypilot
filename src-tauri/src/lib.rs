@@ -319,15 +319,45 @@ fn configure_database(connection: &Connection, database_key: &[u8; 32]) -> Works
     Ok(())
 }
 
+fn run_database_operation<T, F>(operation: F) -> WorkspaceResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> WorkspaceResult<T> + Send + 'static,
+{
+    #[cfg(windows)]
+    {
+        std::thread::Builder::new()
+            .name("pennypilot-database".to_owned())
+            .stack_size(8 * 1024 * 1024)
+            .spawn(operation)
+            .map_err(|_| WorkspaceError::Storage)?
+            .join()
+            .map_err(|_| WorkspaceError::Storage)?
+    }
+    #[cfg(not(windows))]
+    {
+        operation()
+    }
+}
+
+fn initialize_encrypted_database(
+    path: PathBuf,
+    database_key: Zeroizing<[u8; 32]>,
+) -> WorkspaceResult<Connection> {
+    run_database_operation(move || {
+        let connection = Connection::open(path).map_err(|_| WorkspaceError::Storage)?;
+        configure_database(&connection, &database_key)?;
+        initialize_database(&connection)?;
+        Ok(connection)
+    })
+}
+
 fn open_database(directory: &Path, database_key: &[u8; 32]) -> WorkspaceResult<Connection> {
     let path = database_file(directory);
     if !path.exists() {
         return Err(WorkspaceError::InvalidWorkspace);
     }
-    let connection = Connection::open(path).map_err(|_| WorkspaceError::Storage)?;
-    configure_database(&connection, database_key)?;
-    initialize_database(&connection)?;
-    Ok(connection)
+    initialize_encrypted_database(path, Zeroizing::new(*database_key))
 }
 
 fn remove_if_present(path: &Path) -> WorkspaceResult<()> {
@@ -398,12 +428,7 @@ fn create_workspace(directory: &Path, state: &AppState, passphrase: &str) -> Wor
         return Err(error);
     }
 
-    let initialization = (|| {
-        let connection = Connection::open(&db_path).map_err(|_| WorkspaceError::Storage)?;
-        configure_database(&connection, &database_key)?;
-        initialize_database(&connection)?;
-        Ok(connection)
-    })();
+    let initialization = initialize_encrypted_database(db_path, database_key);
     let connection = match initialization {
         Ok(connection) => connection,
         Err(error) => {

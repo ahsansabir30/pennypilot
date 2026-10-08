@@ -624,6 +624,7 @@ fn dashboard_data(connection: &Connection, month: &str) -> WorkspaceResult<Dashb
 #[cfg(test)]
 mod tests {
     use super::*;
+    use zeroize::Zeroizing;
 
     fn finance_db() -> Connection {
         let connection = Connection::open_in_memory().expect("open test database");
@@ -643,14 +644,15 @@ mod tests {
     #[test]
     fn opening_a_pre_finance_workspace_applies_the_financial_migration() {
         let directory = tempfile::tempdir().expect("temporary directory");
-        let database_key = crate::random_bytes::<32>().expect("database key");
-        let connection = Connection::open(super::super::database_file(directory.path()))
-            .expect("open legacy workspace");
-        super::super::configure_database(&connection, &database_key)
-            .expect("configure encrypted database");
-        connection
-            .execute_batch(
-                "CREATE TABLE schema_migrations (
+        let database_key = Zeroizing::new(crate::random_bytes::<32>().expect("database key"));
+        let legacy_path = super::super::database_file(directory.path());
+        let legacy_key = Zeroizing::new(*database_key);
+        super::super::run_database_operation(move || {
+            let connection = Connection::open(legacy_path).map_err(|_| WorkspaceError::Storage)?;
+            super::super::configure_database(&connection, &legacy_key)?;
+            connection
+                .execute_batch(
+                    "CREATE TABLE schema_migrations (
                     version INTEGER PRIMARY KEY NOT NULL,
                     applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
                  );
@@ -659,9 +661,11 @@ mod tests {
                     value TEXT NOT NULL
                  );
                  INSERT INTO schema_migrations (version) VALUES (1);",
-            )
-            .expect("create legacy schema");
-        drop(connection);
+                )
+                .map_err(|_| WorkspaceError::Storage)?;
+            Ok(())
+        })
+        .expect("create encrypted legacy schema");
 
         let migrated = super::super::open_database(directory.path(), &database_key)
             .expect("open and migrate legacy workspace");
