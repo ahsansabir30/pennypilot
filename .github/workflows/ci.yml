@@ -34,6 +34,7 @@ jobs:
         uses: shogo82148/actions-setup-perl@v1
         with:
           perl-version: "5.42"
+          distribution: strawberry
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
