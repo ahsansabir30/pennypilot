@@ -46,31 +46,18 @@ done
 
 
 echo "Running verification..."
-
-if [[ -f backend/pyproject.toml ]]; then
-  (
-    cd backend
-    uv run ruff check .
-    uv run ruff format --check .
-    uv run pytest -q
-  )
+if [[ ! -x scripts/verify.sh ]]; then
+  echo "ERROR: Verification script missing."
+  exit 1
 fi
-
-if [[ -f frontend/package.json ]]; then
-  (
-    cd frontend
-    npm run lint
-    npx tsc --noEmit
-    npx vitest run
-    npm run build
-  )
-fi
+./scripts/verify.sh
 
 echo "Files being published:"
 git diff --cached --stat
 
 echo "Creating commit..."
-git commit -m "$MESSAGE"
+git commit -m "$MESSAGE" \
+  -m "Co-authored-by: Copilot <223556219+Copilot@users.noreply.github.com>"
 
 echo "Pushing to origin/$BRANCH..."
 git push -u origin "$BRANCH"
