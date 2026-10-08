@@ -1,0 +1,2 @@
+[env]
+LIBSQLITE3_FLAGS = { value = "-DSQLCIPHER_OMIT_DEFAULT_LOGGING", force = true }
