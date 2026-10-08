@@ -444,56 +444,37 @@ fn list_transactions_from(
         _ => return Err(WorkspaceError::InvalidFinancialInput),
     };
     let query = filter.search.as_deref().unwrap_or("").trim();
+    let search_pattern = if query.is_empty() {
+        String::new()
+    } else {
+        format!(
+            "%{}%",
+            query
+                .replace('\\', "\\\\")
+                .replace('%', "\\%")
+                .replace('_', "\\_")
+        )
+    };
     let page_size = filter.page_size as i64;
     let offset = (filter.page * filter.page_size) as i64;
     let where_clause = "WHERE (?1 IS NULL OR substr(t.transaction_date, 1, 7) = ?1)
         AND (?2 IS NULL OR t.kind = ?2)
         AND (?3 IS NULL OR t.category_id = ?3)
-        AND (?4 = '' OR instr(lower(COALESCE(t.description, '') || ' ' ||
-            COALESCE(t.merchant, '') || ' ' || COALESCE(t.merchant_normalized, '')),
-            lower(?4)) > 0)";
-    let total = count_filtered_transactions(connection, filter, query, where_clause)?;
-    let transactions = fetch_transactions(
-        connection,
-        filter,
-        query,
-        where_clause,
-        ordering,
-        page_size,
-        offset,
-    )?;
-    Ok(TransactionPage {
-        transactions,
-        total,
-        page: filter.page,
-        page_size: filter.page_size,
-    })
-}
-
-fn count_filtered_transactions(
-    connection: &Connection,
-    filter: &TransactionFilter,
-    query: &str,
-    where_clause: &str,
-) -> WorkspaceResult<u32> {
-    connection
+        AND (?4 = '' OR (COALESCE(t.description, '') || ' ' ||
+            COALESCE(t.merchant, '') || ' ' || COALESCE(t.merchant_normalized, ''))
+            LIKE ?4 ESCAPE '\\' COLLATE NOCASE)";
+    let total = connection
         .query_row(
             &format!("SELECT count(*) FROM transactions t {where_clause}"),
-            params![filter.month, filter.kind, filter.category_id, query],
+            params![
+                filter.month,
+                filter.kind,
+                filter.category_id,
+                search_pattern
+            ],
             |row| row.get::<_, u32>(0),
         )
-        .map_err(|_| WorkspaceError::Storage)
-}
-
-fn fetch_transactions(
-    connection: &Connection,
-    filter: &TransactionFilter,
-    query: &str,
-    where_clause: &str,
-    ordering: &str,
-    page_size: i64,
-    offset: i64,
-) -> WorkspaceResult<Vec<Transaction>> {
+        .map_err(|_| WorkspaceError::Storage)?;
     let mut statement = connection
         .prepare(&format!(
             "SELECT t.id, t.account_id, t.category_id, c.name, t.amount_pence,
@@ -509,7 +490,7 @@ fn fetch_transactions(
                 filter.month,
                 filter.kind,
                 filter.category_id,
-                query,
+                search_pattern,
                 page_size,
                 offset
             ],
@@ -530,7 +511,12 @@ fn fetch_transactions(
         .map_err(|_| WorkspaceError::Storage)?
         .collect::<Result<Vec<_>, _>>()
         .map_err(|_| WorkspaceError::Storage)?;
-    Ok(transactions)
+    Ok(TransactionPage {
+        transactions,
+        total,
+        page: filter.page,
+        page_size: filter.page_size,
+    })
 }
 
 fn monthly_summary(connection: &Connection, month: &str) -> WorkspaceResult<MonthlySummary> {
@@ -823,6 +809,14 @@ mod tests {
             first_page.transactions[0].merchant.as_deref(),
             Some("North Market")
         );
+
+        let wildcard_filter = TransactionFilter {
+            search: Some("%".to_owned()),
+            ..filter.clone()
+        };
+        let wildcard_page =
+            list_transactions_from(&connection, &wildcard_filter).expect("literal wildcard search");
+        assert_eq!(wildcard_page.total, 0);
 
         let second_page =
             list_transactions_from(&connection, &TransactionFilter { page: 1, ..filter })
