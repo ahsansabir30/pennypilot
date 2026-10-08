@@ -29,6 +29,11 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+      - name: Install Strawberry Perl for vendored OpenSSL
+        if: runner.os == 'Windows'
+        uses: shogo82148/actions-setup-perl@v1
+        with:
+          perl-version: "5.42"
       - name: Install Linux desktop dependencies
         if: runner.os == 'Linux'
         run: |
