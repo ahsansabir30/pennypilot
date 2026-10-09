@@ -7,6 +7,7 @@ PennyPilot is a local-first personal finance and subscription tracker for the UK
 - Tauri 2 hosts a React and TypeScript interface built with Vite.
 - Rust owns workspace security, financial rules, and database access. The UI calls narrow Tauri commands rather than issuing SQL.
 - Tauri command access is deny-by-default: `src-tauri/src/app_commands.rs` lists every app command, `build.rs` generates its ACL, and only the `main` window is granted those commands in `capabilities/default.json`. Rust tests fail if the registered handlers, the list and the capability drift apart, and check that unlisted commands or other windows are rejected.
+- The webview runs with a frozen `Object.prototype` (`freezePrototype`) and a strict CSP: same-origin scripts only, no images beyond the app, no plugins (`object-src 'none'`), and no `<base>` or native form submission. Browser tests freeze the prototype too, so incompatible code fails in CI.
 - SQLite is compiled with SQLCipher. A random database key is wrapped with a passphrase-derived key and a separate random recovery key stored in the operating system credential store. The crypto provider uses the macOS Security framework, system OpenSSL on Linux, and OpenSSL from vcpkg for Windows builds.
 - The passphrase wrapper uses Argon2id; key wrappers use XChaCha20-Poly1305. Key material is zeroized where practical.
 - The database lives in the operating-system application-data directory. On Unix, the workspace directory is restricted to the current user. On Windows, it is under the current user's application-data location.

@@ -23,6 +23,8 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
     page.on("pageerror", (error) => consoleErrors.push(error.message));
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
     await page.clock.install({ time: new Date("2024-02-15T12:00:00Z") });
+    // Mirrors Tauri's `freezePrototype`, which runs before any app code in the desktop webview.
+    await page.addInitScript(() => { Object.freeze(Object.prototype); });
     await page.addInitScript(({ initialStatus, blockedCommand, largeAggregates }: { initialStatus: StartStatus; blockedCommand: string | null; largeAggregates: boolean }) => {
       let status = initialStatus;
       let workspacePassword = "fictional workspace passphrase";
@@ -289,6 +291,7 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
       Object.defineProperty(window, "__TAURI_INTERNALS__", { value: { invoke }, configurable: true });
     }, { initialStatus: startStatus, blockedCommand, largeAggregates });
     await runPage(page);
+    expect(await page.evaluate(() => Object.isFrozen(Object.prototype)), "App runs with a frozen Object.prototype").toBe(true);
     expect(consoleErrors, "Normal app flows must not emit console errors").toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "No horizontal page overflow").toBe(true);
     const undersized = await page.getByRole("button").evaluateAll((buttons) => buttons
