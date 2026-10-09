@@ -77,14 +77,17 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   return (
     <section id="categorisation-panel" className="panel categorisation-panel" aria-labelledby="categorisation-title">
       <h2 id="categorisation-title">Categories and rules</h2>
-      <p className="policy-note">Higher priority wins. Conflicting ties stay uncategorised. Manual choices are protected.</p>
+      <p className="policy-note">Manual choices are protected.</p>
+      <details className="calculation-details"><summary>How rules work</summary>
+        <p>Higher priority wins. Conflicting ties stay uncategorised.</p>
+      </details>
       {error && <p role="alert" className="form-message error">{error}</p>}
       {rulesError && <div role="alert" className="form-message error">{rulesError}
         <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
       <div className="categorisation-grid">
         <div>
-          <h3>Editable categories</h3>
+          <h3>Categories</h3>
           <ul className="settings-list">
             {categories.map((item) => <li key={item.id}>
               <span><i style={{ background: item.color }} />{item.name} ({item.categoryType})</span>

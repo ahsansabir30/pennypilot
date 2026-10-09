@@ -36,8 +36,9 @@ detailed accounting, workspace security, export and restore contracts.
   notes and confirmed deletion. Goals do not reserve or transfer money.
 - Scoped, consent-based CSV export and independently encrypted logical backups;
   validated, transactional restore with a required pre-restore safety backup.
-- Responsive dashboard budget/goal previews, mobile transaction cards, panel
-  navigation, validation, loading, error/retry and actionable empty states.
+- Dedicated Overview, Transactions, Budgets, Savings, Categories & Rules and
+  Export & Backup pages; bounded Overview previews and mobile transaction cards,
+  validation, loading, error/retry and single-action empty previews.
 - CSV import, custom account management and recurring/subscription detection
   remain planned. Do not imply they exist or fabricate bills or subscriptions.
 
@@ -100,6 +101,17 @@ detailed accounting, workspace security, export and restore contracts.
   in exports or replace destination workspace credentials during restore.
 
 ## UX and testing
+
+- Keep dependency-free hash routing in `src/navigation.ts`. Use real `#/page`
+  links, accessible active navigation and page-heading focus. Preserve deep links
+  through unlock and browser back/forward; unknown routes replace with Overview.
+- Dashboard owns shared data, mutations, month, transaction filters and draft.
+  Render only the selected page: no editors or full transaction controls on
+  Overview. Keep all transaction controls on Transactions. Month selection applies
+  to Overview, Transactions, Budgets and Export & Backup, not Savings or Categories.
+- Refresh shared finance metadata after category changes and restore. Returning to
+  Overview reloads previews; restore clears stale transaction state. Export/backup
+  consent and credentials must not persist after leaving that page.
 
 - Keep copy short, calm and useful; preserve accessible labels and financial
   explanations. Do not remove failure feedback or safety consent to reduce text.

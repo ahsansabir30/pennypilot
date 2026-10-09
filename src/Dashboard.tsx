@@ -20,6 +20,7 @@ import Budgets from "./Budgets";
 import SavingsGoals from "./SavingsGoals";
 import PrivateData from "./PrivateData";
 import FinancialHighlights from "./FinancialHighlights";
+import { useWorkspacePage, workspacePages } from "./navigation";
 
 const PAGE_SIZE = 10;
 
@@ -34,6 +35,9 @@ function currentMonth(): string {
 }
 
 function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
+  const activePage = useWorkspacePage();
+  const pageHeadingRef = useRef<HTMLHeadingElement>(null);
+  const pageLabel = workspacePages.find((item) => item.id === activePage)!.label;
   const [month, setMonth] = useState(currentMonth);
   const [financeResult, setFinanceResult] = useState<{ key: string; data: FinanceData | null; error: string } | null>(null);
   const [transactionResult, setTransactionResult] = useState<{ key: string; data: TransactionPage | null; error: string } | null>(null);
@@ -46,13 +50,10 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const [planningRevision, setPlanningRevision] = useState(0);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [activePanel, setActivePanel] = useState<"budgets" | "goals" | "private" | "categories" | null>(null);
-  const showBudgets = activePanel === "budgets";
-  const showGoals = activePanel === "goals";
-  const showPrivateData = activePanel === "private";
-  const showSettings = activePanel === "categories";
-  const budgetHeadingRef = useRef<HTMLHeadingElement>(null);
-  const goalHeadingRef = useRef<HTMLHeadingElement>(null);
+  const showBudgets = activePage === "budgets";
+  const showGoals = activePage === "savings";
+  const showPrivateData = activePage === "backup";
+  const showSettings = activePage === "categories";
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [transactionActionError, setTransactionActionError] = useState("");
   const [formMessage, setFormMessage] = useState("");
@@ -73,8 +74,9 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const transactions = transactionResult?.key === transactionKey ? transactionResult.data : null;
   const transactionError = transactionActionError || (transactionResult?.key === transactionKey ? transactionResult.error : "");
 
-  useEffect(() => { if (showBudgets) budgetHeadingRef.current?.focus(); }, [showBudgets]);
-  useEffect(() => { if (showGoals) goalHeadingRef.current?.focus(); }, [showGoals]);
+  useEffect(() => {
+    pageHeadingRef.current?.focus();
+  }, [activePage]);
 
   useEffect(() => {
     let active = true;
@@ -97,6 +99,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   }, [month, refreshKey, financeKey]);
 
   useEffect(() => {
+    if (activePage !== "transactions") return;
     let active = true;
     void invoke<TransactionPage>("list_transactions", {
       filter: {
@@ -125,7 +128,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     return () => {
       active = false;
     };
-  }, [month, kindFilter, categoryFilter, search, sort, page, refreshKey, transactionKey]);
+  }, [activePage, month, kindFilter, categoryFilter, search, sort, page, refreshKey, transactionKey]);
 
   const filteredCategories = useMemo(
     () =>
@@ -142,20 +145,8 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     setRefreshKey((key) => key + 1);
   }
 
-  function openPlanning(panel: "budgets" | "goals") {
-    if (activePanel === panel) {
-      (panel === "budgets" ? budgetHeadingRef : goalHeadingRef).current?.focus();
-    } else {
-      setActivePanel(panel);
-    }
-  }
-
-  function togglePanel(panel: NonNullable<typeof activePanel>) {
-    setActivePanel((current) => current === panel ? null : panel);
-  }
-
   function restored() {
-    setActivePanel("private"); setShowForm(false);
+    setShowForm(false);
     setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); setPendingDelete(null);
     setTransactionResult(null);
     setTransactionActionError("");
@@ -283,34 +274,29 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
         </div>
       </header>
       {lockError && <p className="dashboard-error" role="alert">{lockError}</p>}
+      <nav className="workspace-navigation" aria-label="Workspace pages">
+        {workspacePages.map((item) => <a key={item.id} href={`#/${item.id}`}
+          aria-current={activePage === item.id ? "page" : undefined}>{item.label}</a>)}
+      </nav>
 
+      <div className="dashboard-content">
+          <div className="dashboard-heading">
+            <h1 id="dashboard-title" ref={pageHeadingRef} tabIndex={-1}>{pageLabel}</h1>
+            {["overview", "transactions", "budgets", "backup"].includes(activePage) && <label className="month-picker">
+              <span>Month</span>
+              <input aria-label="Dashboard month" type="month" value={month}
+                onChange={(event) => { setMonth(event.currentTarget.value || currentMonth()); setPage(0); }} />
+            </label>}
+          </div>
       {!finance && !financeError ? (
         <div className="dashboard-loading" role="status">
           <span className="spinner" />
           Loading your encrypted financial data…
         </div>
       ) : (
-        <section className="dashboard-content" aria-labelledby="dashboard-title">
-          <div className="dashboard-heading">
-            <div>
-              <h1 id="dashboard-title">Financial overview</h1>
-              <p>Recorded activity · GBP</p>
-            </div>
-            <label className="month-picker">
-              <span>Month</span>
-              <input
-                aria-label="Dashboard month"
-                type="month"
-                value={month}
-                onChange={(event) => {
-                  setMonth(event.currentTarget.value || currentMonth());
-                  setPage(0);
-                }}
-              />
-            </label>
-          </div>
+        <>
 
-          {(financeError || transactionError) && (
+          {(financeError || (activePage === "transactions" && transactionError)) && (
             <div className="dashboard-error" role="alert">
               <span>{financeError || transactionError}</span>
               <button className="text-button" onClick={refresh} type="button">Retry</button>
@@ -320,12 +306,11 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
           {!currentFinance && !financeError && finance && <p role="status">Loading financial summary...</p>}
           {finance && (
             <>
-              {monthly && <>
+              {activePage === "overview" && monthly && <>
               <section className="summary-grid" aria-label={`${month} financial summary`}>
                 <SummaryCard
                   label="Income"
                   amount={monthly.incomePence}
-                  description="Income received"
                   tone="income"
                 />
                 <SummaryCard
@@ -337,32 +322,22 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 <SummaryCard
                   label="Net cash flow"
                   amount={monthly.netCashFlowPence}
-                  description="Income less net spending"
                   tone={BigInt(monthly.netCashFlowPence) < 0n ? "negative" : "net"}
                 />
               </section>
-              <p className="policy-note">Net cash flow is not an account balance.</p>
+              <p className="policy-note">Recorded activity · GBP. Net cash flow is not an account balance.</p>
               </>}
-              <nav className="finance-tools" aria-label="Workspace tools">
-                <a className="lock-button" href="#transactions-title">Transactions</a>
-                <button className="lock-button" type="button" aria-expanded={showBudgets}
-                  aria-controls="budgets-panel" aria-label="Monthly budgets and insights" onClick={() => togglePanel("budgets")}>Budgets</button>
-                <button className="lock-button" type="button" aria-expanded={showGoals}
-                  aria-controls="savings-panel" aria-label="Manage savings goals" onClick={() => togglePanel("goals")}>Savings</button>
-                <button className="lock-button" type="button" aria-expanded={showPrivateData}
-                  aria-controls="private-data-panel" aria-label="Private export and backup" onClick={() => togglePanel("private")}>Export &amp; backup</button>
-              </nav>
-              <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision}
-                onBudgets={() => openPlanning("budgets")} onGoals={() => openPlanning("goals")} />
+              {activePage === "overview" && <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision} />}
               <fieldset className="finance-record-controls" disabled={!currentFinance}>
               {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey}
-                headingRef={budgetHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
-              {showGoals && <SavingsGoals headingRef={goalHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
+                onChanged={() => setPlanningRevision((value) => value + 1)} />}
+              {showGoals && <SavingsGoals onChanged={() => setPlanningRevision((value) => value + 1)} />}
               {showPrivateData && <PrivateData key={month} month={month} accounts={finance.accounts} categories={finance.categories}
                 search={search} kind={kindFilter} categoryId={categoryFilter} onRestored={restored} />}
+              {showSettings && <CategorisationSettings categories={finance.categories} onChanged={refresh} />}
               </fieldset>
 
-              {currentFinance && monthly && <section className="insight-grid">
+              {activePage === "overview" && currentFinance && monthly && <section className="insight-grid">
                 <article className="panel trend-panel">
                   <div className="panel-heading">
                     <div>
@@ -437,14 +412,13 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 </article>
               </section>}
 
-              <section className="panel transactions-panel" aria-labelledby="transactions-title">
+              {activePage === "overview" && <div className="overview-activity panel">
+                <h2>Recorded transactions</h2>
+                <a className="lock-button" href="#/transactions">View transactions</a>
+              </div>}
+              {activePage === "transactions" && <section className="panel transactions-panel" aria-labelledby="dashboard-title">
                 <div className="transactions-heading">
-                  <div>
-                    <h2 id="transactions-title" tabIndex={-1}>Transactions</h2>
-                  </div>
                   <div className="dashboard-actions">
-                  <button className="lock-button" onClick={() => togglePanel("categories")} type="button"
-                    aria-controls="categorisation-panel" aria-expanded={showSettings}>Manage categories and rules</button>
                   <button className="add-transaction-button" disabled={busy || !currentFinance} onClick={openForm} type="button">
                     <span aria-hidden="true">＋</span> Add transaction
                   </button>
@@ -684,16 +658,14 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   </div>
                 </div>
                 <p className="accounting-policy">
-                  Refunds offset spending and are included in net cash flow. Transfers are excluded from income, spending and net cash flow.
+                  Refunds reduce spending. Transfers are excluded from totals.
                 </p>
-              </section>
-              {showSettings && <fieldset className="finance-record-controls" disabled={!currentFinance}>
-                <CategorisationSettings categories={finance.categories} onChanged={refresh} />
-              </fieldset>}
+              </section>}
             </>
           )}
-        </section>
+        </>
       )}
+      </div>
 
       <footer className="page-footer dashboard-footer">
         <span>Encrypted · Stored locally</span>
@@ -711,7 +683,7 @@ function SummaryCard({
 }: {
   label: string;
   amount: string;
-  description: string;
+  description?: string;
   tone: string;
 }) {
   return (
@@ -723,7 +695,7 @@ function SummaryCard({
         </span>
       </div>
       <strong>{formatPence(amount)}</strong>
-      <span>{description}</span>
+      {description && <span>{description}</span>}
     </article>
   );
 }

@@ -83,13 +83,13 @@ export default function PrivateData({ month, accounts, categories, search, kind,
 
   return <section id="private-data-panel" className="panel finance-management" aria-labelledby="private-data-title">
     <h2 id="private-data-title">Private export and backup</h2>
-    <p className="policy-note">Local files only. Backups include financial records and notes, not workspace credentials.</p>
+    <p className="policy-note">Local files. Backups contain records and notes, not workspace credentials.</p>
     <details className="calculation-details"><summary>Local file locations</summary>
       {locations.map((path) => <p key={path} className="local-file-path">{path}</p>)}</details>
     {error && <p role="alert">{error}</p>}
     {message && <p role="status" className="local-file-path">{message}</p>}
     <form className="transaction-form" onSubmit={(event) => void exportTransactions(event)}>
-      <h3>Scoped transaction CSV export</h3>
+      <h3>Export transactions</h3>
       <details className="calculation-details"><summary>CSV format</summary><p className="policy-note">UTF-8 with BOM, comma-separated, CRLF rows; GBP decimal pounds with two places plus integer pence.
         Source dates use YYYY-MM-DD. All amounts are positive; kind distinguishes expenses, income, refunds and transfers.
         Spreadsheet-sensitive cells are prefixed with an apostrophe. CSV is a report, not a restorable backup.</p></details>

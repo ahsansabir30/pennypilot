@@ -13,7 +13,7 @@ const budgets: BudgetData = {
   ],
 };
 const goal: SavingsGoal = { id: 1, name: "Fictional rainy day", targetPence: 10_000, progressPence: 0, targetDate: null, notes: "Private note" };
-const props = { month: "2024-02", refreshKey: 0, onBudgets: vi.fn(), onGoals: vi.fn() };
+const props = { month: "2024-02", refreshKey: 0 };
 
 describe("dashboard financial highlights", () => {
   beforeEach(() => {
@@ -65,10 +65,10 @@ describe("dashboard financial highlights", () => {
   it("provides actionable empty states and does not round an unfinished goal up to completion", async () => {
     mock.mockImplementation(async (command) => command === "list_budgets" ? { ...budgets, rows: [] } : []);
     const view = render(<FinancialHighlights {...props} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Set your first budget" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Create your first goal" }));
-    expect(props.onBudgets).toHaveBeenCalledOnce();
-    expect(props.onGoals).toHaveBeenCalledOnce();
+    expect(await screen.findByRole("link", { name: "Set your first budget" })).toHaveProperty("hash", "#/budgets");
+    expect(await screen.findByRole("link", { name: "Create your first goal" })).toHaveProperty("hash", "#/savings");
+    expect(within(screen.getByRole("article", { name: "Budgets" })).getAllByRole("link")).toHaveLength(1);
+    expect(within(screen.getByRole("article", { name: "Savings" })).getAllByRole("link")).toHaveLength(1);
     mock.mockImplementation(async (command) => command === "list_budgets" ? budgets : [{ ...goal, progressPence: 9_999 }]);
     view.rerender(<FinancialHighlights {...props} refreshKey={1} />);
     expect(await screen.findByText("99.9% saved")).toBeTruthy();
@@ -112,12 +112,12 @@ describe("dashboard financial highlights", () => {
       ...budgets, rows: Array.from({ length: 4 }, (_, index) => ({ ...budgets.rows[0], categoryId: index + 1, categoryName: `Fictional category ${index + 1}`, usedPence: index === 3 ? "25000" : "1000" })),
     } : Array.from({ length: 4 }, (_, index) => ({ ...goal, id: index + 1, name: `Fictional goal ${index + 1}` })));
     render(<FinancialHighlights {...props} />);
-    await screen.findByText("Showing 3 of 4 categories, highest usage first. Manage budgets to see all.");
+    await screen.findByText("Top 3 of 4 categories by usage");
     const overview = screen.getByRole("region", { name: "Budget and savings overview" });
     expect(within(overview).getAllByRole("progressbar")).toHaveLength(6);
     expect(screen.getByText("Fictional category 4")).toBeTruthy();
     expect(screen.queryByText("Fictional category 3")).toBeNull();
     expect(screen.getByText(/4 budgeted categories · 1 over limit/)).toBeTruthy();
-    expect(await screen.findByText("Showing 3 of 4 goals. Manage goals to see all.")).toBeTruthy();
+    expect(await screen.findByText("3 of 4 goals")).toBeTruthy();
   });
 });

@@ -66,7 +66,7 @@ describe("workspace setup and access", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Create secure workspace/ }));
 
-    await screen.findByRole("heading", { name: "Financial overview" });
+    await screen.findByRole("heading", { name: "Overview" });
     expect(invokeMock).toHaveBeenCalledWith("create_workspace_command", {
       passphrase: "a memorable long passphrase",
     });
@@ -90,7 +90,7 @@ describe("workspace setup and access", () => {
     expect(alert.textContent).toContain(
       "The passphrase could not unlock this workspace.",
     );
-    expect(screen.queryByRole("heading", { name: "Financial overview" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Overview" })).toBeNull();
   });
 
   it("uses on-device recovery to replace a forgotten passphrase", async () => {
@@ -114,7 +114,7 @@ describe("workspace setup and access", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /Recover and continue/ }));
 
-    await screen.findByRole("heading", { name: "Financial overview" });
+    await screen.findByRole("heading", { name: "Overview" });
     expect(invokeMock).toHaveBeenCalledWith(
       "recover_workspace_command",
       { passphrase: "replacement passphrase for workspace" },

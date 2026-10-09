@@ -55,7 +55,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
 
   return <section id="budgets-panel" className="panel finance-management" aria-labelledby="budgets-title">
     <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly category budgets</h2>
-    <p className="policy-note">{month} only. Expenses less refunds; transfers excluded. Recorded history may be incomplete.</p>
+    <p className="policy-note">Expenses less refunds; transfers excluded. Recorded history may be incomplete.</p>
     {displayedError && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}

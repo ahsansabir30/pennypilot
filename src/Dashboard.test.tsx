@@ -117,8 +117,16 @@ function isCommandArgs(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof ArrayBuffer);
 }
 
+function navigate(page: string) {
+  act(() => {
+    window.history.pushState(null, "", `#/${page}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+  });
+}
+
 describe("financial dashboard", () => {
   beforeEach(() => {
+    window.history.replaceState(null, "", "#/transactions");
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
       if (command === "list_finance_data") return financeData;
@@ -132,17 +140,19 @@ describe("financial dashboard", () => {
   });
 
   it("shows totals and trends returned from persisted finance data", async () => {
+    window.history.replaceState(null, "", "#/overview");
     render(<Dashboard onLock={vi.fn()} />);
 
-    expect(await screen.findByRole("heading", { name: "Financial overview" })).toBeTruthy();
-    expect(screen.getByText("£2,500.00")).toBeTruthy();
+    expect(await screen.findByText("£2,500.00")).toBeTruthy();
     expect(screen.getAllByText("£750.00")).toHaveLength(2);
     expect(screen.getByText("£1,800.00")).toBeTruthy();
-    expect(screen.getByText("North Market")).toBeTruthy();
+    expect(screen.queryByText("North Market")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Add transaction/ })).toBeNull();
+    expect(invokeMock.mock.calls.some(([command]) => command === "list_transactions")).toBe(false);
     expect(invokeMock).toHaveBeenCalledWith("list_finance_data", expect.objectContaining({ month: expect.any(String) }));
   });
 
-  it("hides prior totals and rows during month changes, failure and out-of-order responses", async () => {
+  it("hides prior totals during month changes, failure and out-of-order responses", async () => {
     const january = deferred<FinanceData>();
     const february = deferred<FinanceData>();
     invokeMock.mockImplementation(async (command, args) => {
@@ -157,6 +167,7 @@ describe("financial dashboard", () => {
     });
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
+    navigate("overview");
     const picker = screen.getByLabelText("Dashboard month");
     fireEvent.change(picker, { target: { value: "2024-01" } });
     expect(screen.queryByRole("region", { name: /financial summary/ })).toBeNull();
@@ -210,6 +221,8 @@ describe("financial dashboard", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Delete North Market" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await screen.findByText("Fictional summary refresh failed");
+    expect(screen.queryByText("North Market")).toBeNull();
+    navigate("overview");
     expect(screen.queryByRole("region", { name: /financial summary/ })).toBeNull();
     expect(screen.queryByText("North Market")).toBeNull();
     expect(screen.queryByText("£2,500.00")).toBeNull();
@@ -361,6 +374,7 @@ describe("financial dashboard", () => {
     expect(screen.getByRole("combobox", { name: "Filter by type" })).toHaveProperty("value", "");
     expect(screen.getByRole("combobox", { name: "Filter by category" })).toHaveProperty("value", "");
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+    navigate("overview");
     expect(screen.getByText(/not an account balance/)).toBeTruthy();
   });
 
@@ -377,23 +391,28 @@ describe("financial dashboard", () => {
       ] };
       if (command === "list_savings_goals") return [{ id: 1, name: "Fictional reserve", targetPence: 10_000, progressPence, targetDate: null, notes: "" }];
     });
+    window.history.replaceState(null, "", "#/overview");
     render(<Dashboard onLock={vi.fn()} />);
-    const budgetPreview = await screen.findByRole("article", { name: "Budget check-in" });
+    const budgetPreview = await screen.findByRole("article", { name: "Budgets" });
     expect(await within(budgetPreview).findByText("£38.00 left")).toBeTruthy();
-    fireEvent.click(within(budgetPreview).getByRole("button", { name: "Manage budgets" }));
-    expect(screen.getByRole("heading", { name: "Monthly category budgets" })).toBe(document.activeElement);
+    expect(within(budgetPreview).getByRole("link", { name: "View budgets" })).toHaveProperty("hash", "#/budgets");
+    navigate("budgets");
+    expect(screen.getByRole("heading", { name: "Budgets", level: 1 })).toBe(document.activeElement);
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Groceries" }));
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "20.00" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
-    expect(await within(budgetPreview).findByText("£8.00 left")).toBeTruthy();
-    const goalPreview = screen.getByRole("article", { name: "Savings at a glance" });
-    fireEvent.click(within(goalPreview).getByRole("button", { name: "Manage goals" }));
-    expect(screen.getByRole("heading", { name: "Savings goals" })).toBe(document.activeElement);
+    await screen.findByText("Budget saved for 2026-10.");
+    navigate("overview");
+    expect(await screen.findByText("£8.00 left")).toBeTruthy();
+    navigate("savings");
+    expect(screen.getByRole("heading", { name: "Savings", level: 1 })).toBe(document.activeElement);
     fireEvent.click(await screen.findByRole("button", { name: "Edit goal Fictional reserve" }));
     fireEvent.change(screen.getByLabelText("Entered progress (GBP)"), { target: { value: "20.00" } });
     fireEvent.click(screen.getByRole("button", { name: "Save savings goal" }));
-    expect(await within(goalPreview).findByText("20% saved")).toBeTruthy();
-    expect(within(goalPreview).getByText("£80.00 to go")).toBeTruthy();
+    await screen.findByText("Savings goal saved.");
+    navigate("overview");
+    expect(await screen.findByText("20% saved")).toBeTruthy();
+    expect(screen.getByText("£80.00 to go")).toBeTruthy();
   });
 
   it("refreshes restored records and clears stale filters, forms and deletion confirmations", async () => {
@@ -415,18 +434,21 @@ describe("financial dashboard", () => {
     fireEvent.change(screen.getByRole("textbox", { name: "Search transactions" }), { target: { value: "North" } });
     fireEvent.click(await screen.findByRole("button", { name: "Delete North Market" }));
     fireEvent.click(screen.getByRole("button", { name: /Add transaction/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Private export and backup" }));
+    navigate("backup");
     fireEvent.change(screen.getByLabelText("Local backup file path"), { target: { value: "/fictional/example.ppbackup" } });
     fireEvent.change(screen.getByLabelText("Restore backup passphrase"), { target: { value: "fictional-backup-password" } });
     fireEvent.change(screen.getByLabelText("Type RESTORE to confirm"), { target: { value: "RESTORE" } });
     fireEvent.click(screen.getByLabelText(/Replace all current accounts/));
     fireEvent.click(screen.getByRole("button", { name: "Validate and restore backup" }));
+    await waitFor(() => expect(screen.getByLabelText("Restore backup passphrase")).toHaveProperty("value", ""));
+    navigate("overview");
     expect(await screen.findByText("Restored category")).toBeTruthy();
+    navigate("transactions");
+    await screen.findByText("No records");
     expect(screen.queryByText("North Market")).toBeNull();
     expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Save transaction" })).toBeNull();
     expect(screen.getByRole("textbox", { name: "Search transactions" })).toHaveProperty("value", "");
-    expect(screen.getByLabelText("Restore backup passphrase")).toHaveProperty("value", "");
     expect(invokeMock.mock.calls.filter(([command]) => command === "list_transactions").slice(-1)[0]?.[1])
       .toEqual({ filter: expect.objectContaining({ search: "", categoryId: null, kind: null, page: 0 }) });
   });
@@ -448,10 +470,11 @@ describe("financial dashboard", () => {
     render(<Dashboard onLock={vi.fn()} />);
     expect(await screen.findByText(/Conflict: equal highest priority/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Use rules for North Market" })).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Manage categories and rules" }));
+    navigate("categories");
     await waitFor(() => expect(screen.getByRole("button", { name: "Reclassify automatic transactions" })).toHaveProperty("disabled", false));
     fireEvent.click(await screen.findByRole("button", { name: "Reclassify automatic transactions" }));
+    await screen.findByText("1 automatic transaction reclassified. Manual choices preserved.");
+    navigate("overview");
     await waitFor(() => expect(screen.getByText("Dining")).toBeTruthy());
-    expect(screen.getByText("1 automatic transaction reclassified. Manual choices preserved.")).toBeTruthy();
   });
 });

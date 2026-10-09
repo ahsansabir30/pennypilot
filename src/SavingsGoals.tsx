@@ -50,7 +50,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
 
   return <section id="savings-panel" className="panel finance-management" aria-labelledby="savings-title">
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Savings goals</h2>
-    <p className="policy-note">Entered progress, not a bank balance. Goals do not move money or predict completion.</p>
+    <p className="policy-note">Entered progress, not a bank balance. No money is moved or completion predicted.</p>
     {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading savings goals...</p>}
@@ -65,7 +65,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
           <p>{formatPence(goal.progressPence)} entered progress / {formatPence(goal.targetPence)} target</p>
           <progress aria-label={`${goal.name} savings progress`} value={Math.min(100, percent)} max={100} />
           <p>{(Math.round(percent * 10) / 10).toFixed(1)}% · {formatPence(remaining)} remaining</p>
-          {extra > 0 && <p>Overfunded by {formatPence(extra)}; progress is retained, not capped.</p>}
+          {extra > 0 && <p>Overfunded by {formatPence(extra)}; progress is retained.</p>}
           <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">Inputs: entered progress {formatPence(goal.progressPence)} ÷ target {formatPence(goal.targetPence)}.
             {goal.targetDate ? ` Target date: ${goal.targetDate} (your preference, not a forecast).` : " No target date."}</p></details>
           {goal.notes && <details className="calculation-details"><summary>Notes</summary><p className="goal-notes">{goal.notes}</p></details>}

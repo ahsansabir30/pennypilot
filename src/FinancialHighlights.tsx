@@ -3,8 +3,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { absolutePence, financeError, formatPence, localIsoDate, penceRatio } from "./finance";
 import type { BudgetData, SavingsGoal } from "./finance";
 
-export default function FinancialHighlights({ month, refreshKey, onBudgets, onGoals }: {
-  month: string; refreshKey: number; onBudgets: () => void; onGoals: () => void;
+export default function FinancialHighlights({ month, refreshKey }: {
+  month: string; refreshKey: number;
 }) {
   const [budgetState, setBudgetState] = useState<{ key: string; data: BudgetData | null; error: string } | null>(null);
   const [goalState, setGoalState] = useState<{ key: string; data: SavingsGoal[] | null; error: string } | null>(null);
@@ -41,15 +41,15 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
   return <section className="planning-grid" aria-label="Budget and savings overview">
     <article className="panel planning-panel" aria-labelledby="budget-preview-title">
       <div className="panel-heading">
-        <h2 id="budget-preview-title">Budget check-in</h2>
-        <button className="text-button" type="button" onClick={onBudgets}>Manage budgets</button>
+        <h2 id="budget-preview-title">Budgets</h2>
+        {!!current?.rows.length && <a className="text-button" href="#/budgets">View budgets</a>}
       </div>
       {budgetError ? <div className="preview-error" role="alert">{budgetError}
         <button type="button" className="text-button" onClick={() => setBudgetRetry((value) => value + 1)}>Retry budget overview</button>
       </div> : !current ? <p role="status" className="preview-empty">Loading your budget plan...</p>
         : current.rows.length === 0 ? <div className="preview-empty">
           <strong>No budgets this month.</strong>
-          <button className="lock-button" type="button" onClick={onBudgets}>Set your first budget</button>
+          <a className="lock-button" href="#/budgets">Set your first budget</a>
         </div> : <>
           <p className="preview-caption">{current.rows.length} budgeted {current.rows.length === 1 ? "category" : "categories"} · {overLimitCount} over limit · {current.periodEnd ? `Recorded through ${current.periodEnd}` : "Future month; no elapsed spending period"}</p>
           <ul className="preview-list">
@@ -66,21 +66,21 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
               </li>;
             })}
           </ul>
-          {current.rows.length > 3 && <p className="preview-caption">Showing 3 of {current.rows.length} categories, highest usage first. Manage budgets to see all.</p>}
+          {current.rows.length > 3 && <p className="preview-caption">Top 3 of {current.rows.length} categories by usage</p>}
           <p className="policy-note">Expenses less refunds. Transfers excluded; history may be incomplete.</p>
         </>}
     </article>
     <article className="panel planning-panel" aria-labelledby="goal-preview-title">
       <div className="panel-heading">
-        <h2 id="goal-preview-title">Savings at a glance</h2>
-        <button className="text-button" type="button" onClick={onGoals}>Manage goals</button>
+        <h2 id="goal-preview-title">Savings</h2>
+        {!!goals?.length && <a className="text-button" href="#/savings">View goals</a>}
       </div>
       {goalError ? <div className="preview-error" role="alert">{goalError}
         <button className="text-button" type="button" onClick={() => setGoalRetry((value) => value + 1)}>Retry savings overview</button>
       </div> : goals === null ? <p role="status" className="preview-empty">Loading your savings goals...</p>
         : goals.length === 0 ? <div className="preview-empty">
           <strong>No savings goals yet.</strong>
-          <button className="lock-button" type="button" onClick={onGoals}>Create your first goal</button>
+          <a className="lock-button" href="#/savings">Create your first goal</a>
         </div> : <>
           <p className="preview-caption">Entered progress · Not a bank balance</p>
           <ul className="preview-list">
@@ -92,7 +92,7 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
               <progress aria-label={`${goal.name} entered savings progress`} max={100} value={Math.min(100, goal.progressPence / goal.targetPence * 100)} />
             </li>)}
           </ul>
-          {goals.length > 3 && <p className="preview-caption">Showing 3 of {goals.length} goals. Manage goals to see all.</p>}
+          {goals.length > 3 && <p className="preview-caption">3 of {goals.length} goals</p>}
         </>}
     </article>
   </section>;

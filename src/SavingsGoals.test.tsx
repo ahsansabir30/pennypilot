@@ -17,7 +17,7 @@ describe("savings goals", () => {
     expect(screen.getByText("0.0% · £100.00 remaining")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 0);
     expect(screen.getByText(/not a bank balance/)).toBeTruthy();
-    expect(screen.getByText(/predict completion/)).toBeTruthy();
+    expect(screen.getByText(/completion predicted/)).toBeTruthy();
     expect(mock).not.toHaveBeenCalledWith("list_finance_data", expect.anything());
   });
 
@@ -25,7 +25,7 @@ describe("savings goals", () => {
     mock.mockResolvedValue([{ ...goal, progressPence: 12_345, targetDate: "2028-02-29" }]);
     render(<SavingsGoals />);
     expect(await screen.findByText("123.5% · £0.00 remaining")).toBeTruthy();
-    expect(screen.getByText("Overfunded by £23.45; progress is retained, not capped.")).toBeTruthy();
+    expect(screen.getByText("Overfunded by £23.45; progress is retained.")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 100);
     expect(screen.getByText(/Target date: 2028-02-29 \(your preference, not a forecast\)/)).toBeTruthy();
   });
