@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, State};
 use zeroize::Zeroizing;
 
+#[cfg(test)]
+mod app_commands;
 mod finance;
 
 const APP_SERVICE: &str = "com.pennypilot.desktop";
@@ -669,5 +671,113 @@ mod tests {
             unwrap_database_key(&envelope, &incorrect_key, true),
             Err(WorkspaceError::RecoveryFailed)
         ));
+    }
+
+    #[test]
+    fn command_allowlist_matches_registered_handlers_and_capability() {
+        use std::collections::BTreeSet;
+
+        let allowlisted: BTreeSet<&str> =
+            crate::app_commands::APP_COMMANDS.iter().copied().collect();
+        assert_eq!(
+            allowlisted.len(),
+            crate::app_commands::APP_COMMANDS.len(),
+            "duplicate command in app_commands.rs"
+        );
+
+        // Commands are registered by macro, so read them from the source of `run`.
+        let source = include_str!("lib.rs");
+        let handler_block = source
+            .split("generate_handler![")
+            .nth(1)
+            .and_then(|rest| rest.split(']').next())
+            .expect("generate_handler! block");
+        let registered: BTreeSet<&str> = handler_block
+            .split(',')
+            .map(str::trim)
+            .filter(|path| !path.is_empty())
+            .map(|path| path.rsplit("::").next().unwrap_or(path))
+            .collect();
+        assert_eq!(
+            registered, allowlisted,
+            "generate_handler! and app_commands.rs differ"
+        );
+
+        let capability: serde_json::Value =
+            serde_json::from_str(include_str!("../capabilities/default.json"))
+                .expect("capability JSON");
+        let granted: BTreeSet<String> = capability["permissions"]
+            .as_array()
+            .expect("permissions array")
+            .iter()
+            .filter_map(|permission| permission.as_str())
+            .filter_map(|permission| permission.strip_prefix("allow-"))
+            .map(|command| command.replace('-', "_"))
+            .collect();
+        let expected: BTreeSet<String> = allowlisted.iter().map(|c| (*c).to_owned()).collect();
+        assert_eq!(
+            granted, expected,
+            "capabilities/default.json and app_commands.rs differ"
+        );
+    }
+
+    #[tauri::command]
+    fn command_missing_from_allowlist() {}
+
+    #[test]
+    fn ipc_acl_only_allows_allowlisted_commands_from_the_main_window() {
+        use tauri::{
+            ipc::{CallbackFn, InvokeBody},
+            test::{get_ipc_response, mock_builder, INVOKE_KEY},
+            webview::InvokeRequest,
+            WebviewWindowBuilder,
+        };
+
+        // The ACL comes from the real build-time context (app manifest + capabilities).
+        let app = mock_builder()
+            .manage(test_state())
+            .invoke_handler(tauri::generate_handler![
+                lock_workspace,
+                command_missing_from_allowlist
+            ])
+            .build(tauri::generate_context!(test = true))
+            .expect("mock app");
+        let main = WebviewWindowBuilder::new(&app, "main", Default::default())
+            .build()
+            .expect("main window");
+        let secondary = WebviewWindowBuilder::new(&app, "secondary", Default::default())
+            .build()
+            .expect("secondary window");
+        let request = |cmd: &str| InvokeRequest {
+            cmd: cmd.into(),
+            callback: CallbackFn(0),
+            error: CallbackFn(1),
+            url: if cfg!(windows) {
+                "http://tauri.localhost"
+            } else {
+                "tauri://localhost"
+            }
+            .parse()
+            .expect("local origin"),
+            body: InvokeBody::default(),
+            headers: Default::default(),
+            invoke_key: INVOKE_KEY.to_string(),
+        };
+
+        let rejection = |response: Result<_, serde_json::Value>| match response {
+            Ok(_) => String::new(),
+            Err(error) => error.to_string(),
+        };
+
+        // Reaching the command (which reports the locked workspace) proves the ACL allowed it.
+        let allowed = rejection(get_ipc_response(&main, request("lock_workspace")));
+        assert!(allowed.contains("workspace is locked"), "{allowed}");
+        let unlisted = rejection(get_ipc_response(
+            &main,
+            request("command_missing_from_allowlist"),
+        ));
+        assert!(unlisted.contains("not allowed"), "{unlisted}");
+        let other_window = rejection(get_ipc_response(&secondary, request("lock_workspace")));
+        assert!(other_window.contains("not allowed"), "{other_window}");
     }
 }
