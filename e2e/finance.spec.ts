@@ -82,7 +82,13 @@ test("overview previews and all dedicated workspace pages stay separate", async 
   await expect(page.getByRole("button", { name: "Add transaction", exact: true })).toHaveCount(0);
   await expect(page.getByRole("table")).toHaveCount(0);
   for (const title of ["Budgets", "Savings"]) {
-    await expect(page.getByRole("article", { name: title, exact: true }).getByRole("link")).toHaveCount(1);
+    const preview = page.getByRole("article", { name: title, exact: true });
+    await expect(preview.getByRole("link")).toHaveCount(1);
+    const text = await preview.getByText(title === "Savings" ? "No savings goals yet." : "No budgets this month.", { exact: true }).boundingBox();
+    const action = await preview.getByRole("link").boundingBox();
+    expect(text).not.toBeNull();
+    expect(action).not.toBeNull();
+    expect(action!.y - (text!.y + text!.height)).toBeGreaterThanOrEqual(16);
   }
   await page.getByRole("link", { name: "Set your first budget", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Budgets", level: 1 })).toBeFocused();
@@ -153,12 +159,16 @@ test("transactions validate, close, save exact pence, preserve manual categories
   const last = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "create_transaction").slice(-1)[0]);
   expect(last.args.input).toMatchObject({ amountPence: 1234, transactionDate: "2024-02-15", categoryId: 1, manualCategory: true });
   const row = page.getByRole("row").filter({ has: page.getByText("Fictional Coffee Shop", { exact: true }) });
+  await expect(row.getByText("Manual", { exact: true })).toBeVisible();
+  await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeHidden();
   await row.getByText("Category details", { exact: true }).click();
   await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeVisible();
   await row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true }).selectOption("");
   await expect(row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true })).toHaveValue("");
   await row.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true }).click();
   await expect(row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true })).toHaveValue("automatic");
+  await expect(row.getByText("Automatic", { exact: true })).toBeVisible();
+  await expect(row.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true })).toHaveCount(0);
   await row.getByRole("button", { name: "Delete Fictional Coffee Shop", exact: true }).click();
   await row.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(row.getByRole("button", { name: "Delete Fictional Coffee Shop", exact: true })).toBeVisible();
@@ -225,8 +235,18 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await expect(page.getByRole("article", { name: "Budgets", exact: true })).toContainText("£500.01");
   await navigate(page, "Budgets");
   await panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true }).click();
+  await expect(panel.getByRole("list", { name: "Category budgets" }).getByRole("listitem")).toHaveCount(1);
+  await expect(panel.getByRole("heading", { name: "Edit budget limit" })).toBeVisible();
+  await expect(panel.getByLabel("Monthly limit (GBP)")).toBeFocused();
   await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("500.01");
+  await panel.getByLabel("Monthly limit (GBP)").fill("250.01");
+  await panel.getByRole("button", { name: "Save monthly budget", exact: true }).click();
+  await expect(panel.getByText("£108.00 used / £250.01 limit", { exact: true })).toBeVisible();
+  await expect(panel.getByRole("heading", { name: "Set a budget limit" })).toBeVisible();
+  await panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true }).click();
+  await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("250.01");
   await panel.getByRole("button", { name: "Clear budget form", exact: true }).click();
+  await expect(panel.getByRole("heading", { name: "Set a budget limit" })).toBeVisible();
   await expect(panel.getByLabel("Budget category")).toHaveValue("");
   await panel.getByText("Period details", { exact: true }).click();
   await expect(panel.getByText(/current period 2024-02-01 through 2024-02-15/)).toBeVisible();
@@ -241,6 +261,45 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm budget removal", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true })).toHaveCount(0);
+});
+
+test("multiple budgets remain separate list rows with an accessible responsive limit editor", async ({ page }, testInfo) => {
+  await home(page);
+  await navigate(page, "Categories & Rules");
+  await page.getByLabel("Category name").fill("Fictional Travel");
+  await page.getByLabel("Category type").selectOption("expense");
+  await page.getByRole("button", { name: "Save category", exact: true }).click();
+  await expect(page.getByRole("status")).toHaveText("Category saved.");
+  await navigate(page, "Budgets");
+  for (const category of ["Fictional Food", "Fictional Travel"]) {
+    await page.getByLabel("Budget category").selectOption({ label: category });
+    await page.getByLabel("Monthly limit (GBP)").fill("100.00");
+    await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
+    await expect(page.getByRole("button", { name: `Edit budget for ${category}`, exact: true })).toBeVisible();
+  }
+  const list = page.getByRole("list", { name: "Category budgets" });
+  await expect(list.getByRole("listitem")).toHaveCount(2);
+  const food = list.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Fictional Food", exact: true }) });
+  const travel = list.getByRole("listitem").filter({ has: page.getByRole("heading", { name: "Fictional Travel", exact: true }) });
+  const foodBox = await food.boundingBox();
+  const travelBox = await travel.boundingBox();
+  expect(foodBox).not.toBeNull();
+  expect(travelBox).not.toBeNull();
+  expect(travelBox!.y).toBeGreaterThanOrEqual(foodBox!.y + foodBox!.height - 1);
+  await travel.getByRole("button", { name: "Edit budget for Fictional Travel", exact: true }).click();
+  await expect(page.getByLabel("Budget category")).toHaveValue("3");
+  await expect(page.getByLabel("Monthly limit (GBP)")).toBeFocused();
+  const categoryBox = await page.getByLabel("Budget category").boundingBox();
+  const limitBox = await page.getByLabel("Monthly limit (GBP)").boundingBox();
+  expect(categoryBox).not.toBeNull();
+  expect(limitBox).not.toBeNull();
+  if (testInfo.project.name === "mobile") {
+    expect(limitBox!.y).toBeGreaterThanOrEqual(categoryBox!.y + categoryBox!.height);
+  } else {
+    expect(Math.abs(limitBox!.y - categoryBox!.y)).toBeLessThanOrEqual(2);
+  }
+  await page.getByRole("button", { name: "Clear budget form", exact: true }).click();
+  await expect(page.getByLabel("Monthly limit (GBP)")).toHaveValue("");
 });
 
 test("savings add, invalid values, explicit progress, edit/cancel, notes and delete/cancel work", async ({ page }) => {

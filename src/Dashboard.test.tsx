@@ -469,6 +469,8 @@ describe("financial dashboard", () => {
     });
     render(<Dashboard onLock={vi.fn()} />);
     expect(await screen.findByText(/Conflict: equal highest priority/)).toBeTruthy();
+    expect(screen.getByText("Rule conflict")).toBeTruthy();
+    expect(screen.getByText("Category details").closest("details")).toHaveProperty("open", false);
     expect(screen.queryByRole("button", { name: "Use rules for North Market" })).toBeNull();
     navigate("categories");
     await waitFor(() => expect(screen.getByRole("button", { name: "Reclassify automatic transactions" })).toHaveProperty("disabled", false));

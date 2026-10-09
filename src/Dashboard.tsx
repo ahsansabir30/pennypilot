@@ -747,7 +747,7 @@ function TransactionRow({
         {transaction.kind === "transfer" ? (
           <span className="transfer-category">Excluded</span>
         ) : (
-          <>
+          <div className="category-control">
           <select
             disabled={busy}
             aria-label={`Category for ${displayName}`}
@@ -756,20 +756,27 @@ function TransactionRow({
             onChange={(event) => onCategoryChange(event.currentTarget.value)}
           >
             {transaction.categorySource !== "manual" && <option value="automatic" disabled>
-              {transaction.categoryName ?? "Uncategorised"} (automatic)
+              {transaction.categoryName ?? "Uncategorised"}
             </option>}
             <option value="">Uncategorised</option>
             {eligibleCategories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
-          {transaction.categorySource === "manual"
-            ? <details className="category-details"><summary>Category details</summary><small className="category-explanation">{transaction.categoryExplanation}</small></details>
-            : <small className="category-explanation">{transaction.categoryExplanation}</small>}
-          {transaction.categorySource === "manual" && <button type="button"
-            className="use-rules-button" disabled={busy} onClick={onUseRules}
-            aria-label={`Use rules for ${displayName}`}>Use rules (clear manual choice)</button>}
-          </>
+          <div className="category-control-meta">
+            <details className="category-details">
+              <summary>
+                <span className="category-source">{transaction.categorySource === "manual" ? "Manual" :
+                  transaction.categoryExplanation.startsWith("Conflict:") ? "Rule conflict" : "Automatic"}</span>
+                <span>Category details</span>
+              </summary>
+              <small className="category-explanation">{transaction.categoryExplanation}</small>
+            </details>
+            {transaction.categorySource === "manual" && <button type="button"
+              className="use-rules-button" disabled={busy} onClick={onUseRules}
+              aria-label={`Use rules for ${displayName}`}>Use rules</button>}
+          </div>
+          </div>
         )}
       </td>
       <td className={`amount-column transaction-amount ${transaction.kind}`}>

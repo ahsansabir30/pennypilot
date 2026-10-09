@@ -44,12 +44,16 @@ describe("monthly budgets", () => {
   it("saves exact pence, edits limits and persists comparison preference", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Fictional Food" }));
+    expect(screen.getByRole("list", { name: "Category budgets" })).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Edit budget limit" })).toBeTruthy();
+    expect(screen.getByLabelText("Monthly limit (GBP)")).toBe(document.activeElement);
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "100.00");
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "250.01" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget", { input: { month: "2024-02", categoryId: 1, limitPence: 25_001 } }));
     await screen.findByText("Budget saved for 2024-02.");
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "");
+    expect(screen.getByRole("heading", { name: "Set a budget limit" })).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Comparison period"), { target: { value: "full_month" } });
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget_preferences", { comparisonMode: "full_month" }));
   });

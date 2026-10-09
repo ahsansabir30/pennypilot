@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, localIsoDate, penceRatio, poundsToPence } from "./finance";
@@ -14,6 +14,8 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ categoryId: "", limit: "" });
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [editing, setEditing] = useState(false);
+  const limitRef = useRef<HTMLInputElement>(null);
   const eligible = categories.filter((category) => category.categoryType === "expense");
   const requestKey = `${month}:${refreshKey}:${revision}`;
   const current = result?.key === requestKey && result.data?.month === month ? result.data : null;
@@ -50,7 +52,10 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       return;
     }
     if (await mutate("save_budget", { input: { month, categoryId: Number(form.categoryId), limitPence } },
-      `Budget saved for ${month}.`)) setForm({ categoryId: "", limit: "" });
+      `Budget saved for ${month}.`)) {
+      setForm({ categoryId: "", limit: "" });
+      setEditing(false);
+    }
   }
 
   return <section id="budgets-panel" className="panel finance-management" aria-labelledby="budgets-title">
@@ -60,6 +65,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}
     {current && <>
+      <div className="budget-toolbar">
       <details className="calculation-details"><summary>Period details</summary><p className="policy-note">As of {current.asOf}: {current.periodEnd
         ? `current period ${month}-01 through ${current.periodEnd}`
         : "future month; no elapsed period"}.
@@ -73,29 +79,47 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
           <option value="full_month">Full previous month (unequal periods)</option>
         </select>
       </label>
+      </div>
       {current.rows.length === 0 && <p>No budgets this month.</p>}
-      <ul className="management-cards">
+      <ul className="budget-list" aria-label="Category budgets">
         {current.rows.map((row) => {
           const used = BigInt(row.usedPence);
           const limit = BigInt(row.limitPence);
           const percent = penceRatio(used > 0n ? used : 0n, limit) * 100;
           const exceeded = used > limit;
           const status = exceeded ? "Exceeded budget" : row.recordCount === 0 ? "No records yet" : used * 100n >= limit * 80n ? "Approaching limit" : "Within limit";
-          return <li key={row.categoryId}>
-            <h3>{row.categoryName}</h3>
-            <p>{formatPence(row.usedPence)} used / {formatPence(row.limitPence)} limit</p>
-            <progress className={exceeded ? "over" : undefined} aria-label={`${row.categoryName} budget progress`} value={Math.min(100, percent)} max={100} />
-            <p className={exceeded ? "budget-exceeded" : ""}>{status} · {(Math.round(percent * 10) / 10).toFixed(1)}%</p>
-            <p>{exceeded ? `${formatPence(used - limit)} over limit.`
-              : `${formatPence(limit - used)} remaining allowance.`}</p>
+          return <li className="budget-row" key={row.categoryId}>
+            <div className="budget-row-main">
+              <div className="budget-row-title">
+                <span className="budget-category-dot" aria-hidden="true"
+                  style={{ backgroundColor: categories.find((category) => category.id === row.categoryId)?.color }} />
+                <h3>{row.categoryName}</h3>
+              </div>
+              <p>{formatPence(row.usedPence)} used / {formatPence(row.limitPence)} limit</p>
+            </div>
+            <div className="budget-row-usage">
+              <progress className={exceeded ? "over" : undefined} aria-label={`${row.categoryName} budget progress`} value={Math.min(100, percent)} max={100} />
+              <p className={exceeded ? "budget-exceeded" : ""}>{status} · {(Math.round(percent * 10) / 10).toFixed(1)}%</p>
+            </div>
+            <div className="budget-row-remaining">
+              <p>{exceeded ? `${formatPence(used - limit)} over limit.`
+                : `${formatPence(limit - used)} remaining allowance.`}</p>
+            </div>
+            <div className="budget-row-actions">
+              <button type="button" aria-label={`Edit budget for ${row.categoryName}`} disabled={busy} onClick={() => {
+                setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) });
+                setEditing(true); setError(""); setMessage("");
+                limitRef.current?.focus();
+                limitRef.current?.scrollIntoView?.({ block: "center" });
+              }}>Edit</button>
+              <button className="budget-remove" type="button" aria-label={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove</button>
+            </div>
             <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">{row.recordCount} expense/refund records in this period.
               {used < 0n && " Refunds exceed expenses; the progress bar is floored at zero, not the recorded used amount."}</p>
             <p className="policy-note">{row.previousUsedPence === null
               ? "No comparable category records in the previous period; no change inferred."
               : `Previous recorded net spending: ${formatPence(row.previousUsedPence)} from ${row.previousRecordCount} records.${row.recordCount > 0 ? ` Recorded change: ${formatPence(used - BigInt(row.previousUsedPence))}.` : " No current records for a change comparison."}`}</p>
             {row.recordCount === 0 && <p className="policy-note">No current category records; zero recorded usage is not evidence of zero actual spending.</p>}</details>
-            <button type="button" disabled={busy} onClick={() => setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) })}>Edit budget for {row.categoryName}</button>
-            <button type="button" disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove budget for {row.categoryName}</button>
           </li>;
         })}
       </ul>
@@ -105,20 +129,28 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       <button type="button" disabled={busy} onClick={() => void mutate("delete_budget", { month, categoryId: deleting }, "Budget removed.")}>Confirm budget removal</button>
       <button type="button" disabled={busy} onClick={() => setDeleting(null)}>Cancel budget removal</button>
     </div>}
-    <form className="transaction-form" onSubmit={(event) => void save(event)}>
-      <h3>Budget limit · {month}</h3>
-      <div className="transaction-form-grid">
+    <form className="transaction-form budget-limit-form" onSubmit={(event) => void save(event)}>
+      <div className="budget-editor-heading">
+        <h3>{editing ? "Edit budget limit" : "Set a budget limit"}</h3>
+        <span>{month}</span>
+      </div>
+      <div className="transaction-form-grid budget-limit-fields">
         <label>Budget category<select required disabled={busy} value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.currentTarget.value })}>
           <option value="">Choose an expense category</option>
           {eligible.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
         </select></label>
-        <label>Monthly limit (GBP)<input required disabled={busy} inputMode="decimal" value={form.limit}
-          onChange={(event) => setForm({ ...form, limit: event.currentTarget.value })} /></label>
+        <div className="budget-amount-field"><label htmlFor="budget-limit">Monthly limit (GBP)</label><span className="budget-amount-input">
+          <span aria-hidden="true">£</span>
+          <input id="budget-limit" ref={limitRef} required disabled={busy} inputMode="decimal" placeholder="0.00" value={form.limit}
+            onChange={(event) => setForm({ ...form, limit: event.currentTarget.value })} />
+        </span></div>
       </div>
-      <button type="submit" disabled={busy || eligible.length === 0}>Save monthly budget</button>
-      {(form.categoryId || form.limit) && <button type="button" disabled={busy} onClick={() => {
-        setForm({ categoryId: "", limit: "" }); setError(""); setMessage("");
-      }}>Clear budget form</button>}
+      <div className="budget-editor-actions">
+        <button type="submit" disabled={busy || eligible.length === 0}>Save monthly budget</button>
+        {(form.categoryId || form.limit) && <button type="button" disabled={busy} onClick={() => {
+          setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setMessage("");
+        }}>Clear budget form</button>}
+      </div>
     </form>
   </section>;
 }
