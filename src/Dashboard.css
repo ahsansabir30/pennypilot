@@ -393,12 +393,12 @@
 
 .chart-legend .legend-income {
   margin-left: 5px;
-  background: #639776;
+  background: #4f805d;
 }
 
 .chart-legend .legend-spending {
   margin-left: 5px;
-  background: #d59478;
+  background: #b76b49;
 }
 
 .trend-chart {
@@ -438,11 +438,11 @@
 }
 
 .income-bar {
-  background: #77a486;
+  background: #4f805d;
 }
 
 .spending-bar {
-  background: #dda28a;
+  background: #b76b49;
 }
 
 .trend-values {
@@ -609,7 +609,7 @@
 
 .transaction-form-grid label > span {
   display: inline;
-  color: #929c94;
+  color: var(--finance-muted);
   font-weight: 400;
 }
 
@@ -773,7 +773,7 @@
 
 .kind-badge.transfer {
   background: #edf1f5;
-  color: #637990;
+  color: #405a74;
 }
 
 .category-select {
@@ -785,8 +785,8 @@
 }
 
 .transfer-category {
-  color: #8d9890;
-  font-size: 9px;
+  color: var(--finance-muted);
+  font-size: 12px;
 }
 
 .transaction-amount {
@@ -815,7 +815,7 @@
   border: 0;
   border-radius: 6px;
   background: transparent;
-  color: #9a7169;
+  color: #84392f;
   cursor: pointer;
   font-size: 12px;
 }
@@ -827,7 +827,7 @@
 }
 
 .cancel-delete {
-  color: #718077;
+  color: var(--finance-muted);
 }
 
 .empty-transactions {
