@@ -9,8 +9,12 @@ export default defineConfig(() => ({
     include: ["src/**/*.test.{ts,tsx}"],
     environment: "jsdom",
     pool: "threads",
-    maxWorkers: 1,
     fileParallelism: false,
+  },
+  // Lowest supported system webviews (WebView2 on Windows, WebKit elsewhere). Safari 14 is the
+  // floor rather than Tauri's suggested safari13 because money arithmetic uses BigInt literals.
+  build: {
+    target: ["chrome105", "safari14"],
   },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`

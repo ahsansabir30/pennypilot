@@ -4,7 +4,7 @@ PennyPilot is a local-first personal finance and subscription tracker for the UK
 
 ## Architecture
 
-- Tauri 2 hosts a React and TypeScript interface built with Vite.
+- Tauri 2 hosts a React and TypeScript interface built with Vite. The frontend targets system webviews from WebView2/Chromium 105 and Safari/WebKit 14; money arithmetic uses `BigInt`, so older WebKit is unsupported.
 - Rust owns workspace security, financial rules, and database access. The UI calls narrow Tauri commands rather than issuing SQL.
 - Tauri command access is deny-by-default: `src-tauri/src/app_commands.rs` lists every app command, `build.rs` generates its ACL, and only the `main` window is granted those commands in `capabilities/default.json`. Rust tests fail if the registered handlers, the list and the capability drift apart, and check that unlisted commands or other windows are rejected.
 - The webview runs with a frozen `Object.prototype` (`freezePrototype`) and a strict CSP: same-origin scripts only, no images beyond the app, no plugins (`object-src 'none'`), and no `<base>` or native form submission. Browser tests freeze the prototype too, so incompatible code fails in CI.
