@@ -217,6 +217,40 @@ describe("financial dashboard", () => {
     }));
   });
 
+  it("refreshes restored records and clears stale filters, forms and deletion confirmations", async () => {
+    let restored = false;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_finance_data") return {
+        ...financeData, categorySpending: [{ ...financeData.categorySpending[0], categoryName: restored ? "Restored category" : "Groceries" }],
+      };
+      if (command === "list_transactions") return restored ? { ...transactionPage, transactions: [], total: 0 } : transactionPage;
+      if (command === "private_data_locations") return ["/fictional/private-backups"];
+      if (command === "restore_private_backup") {
+        restored = true;
+        return { safetyBackupPath: "/fictional/private-backups/safety.ppbackup", recordCount: 0 };
+      }
+      return undefined;
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search transactions" }), { target: { value: "North" } });
+    fireEvent.click(screen.getByRole("button", { name: "Delete North Market" }));
+    fireEvent.click(screen.getByRole("button", { name: /Add transaction/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Private export and backup" }));
+    fireEvent.change(screen.getByLabelText("Local backup file path"), { target: { value: "/fictional/example.ppbackup" } });
+    fireEvent.change(screen.getByLabelText("Restore backup passphrase"), { target: { value: "fictional-backup-password" } });
+    fireEvent.change(screen.getByLabelText("Type RESTORE to confirm"), { target: { value: "RESTORE" } });
+    fireEvent.click(screen.getByLabelText(/Replace all current accounts/));
+    fireEvent.click(screen.getByRole("button", { name: "Validate and restore backup" }));
+    expect(await screen.findByText("Restored category")).toBeTruthy();
+    expect(screen.queryByText("North Market")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Confirm" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Save transaction" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Search transactions" })).toHaveProperty("value", "");
+    expect(screen.getByLabelText("Restore backup passphrase")).toHaveProperty("value", "");
+    expect(invokeMock).toHaveBeenLastCalledWith("list_transactions", { filter: expect.objectContaining({ search: "", categoryId: null, kind: null, page: 0 }) });
+  });
+
   it("shows conflicts and refreshes the category breakdown after reclassification", async () => {
     let reclassified = false;
     invokeMock.mockImplementation(async (command) => {

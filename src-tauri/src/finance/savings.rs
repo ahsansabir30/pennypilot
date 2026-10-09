@@ -3,12 +3,12 @@ use super::*;
 #[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct Goal {
-    id: Option<i64>,
-    name: String,
-    target_pence: i64,
-    progress_pence: i64,
-    target_date: Option<String>,
-    notes: String,
+    pub(super) id: Option<i64>,
+    pub(super) name: String,
+    pub(super) target_pence: i64,
+    pub(super) progress_pence: i64,
+    pub(super) target_date: Option<String>,
+    pub(super) notes: String,
 }
 
 pub(super) fn migrate(connection: &Connection) -> WorkspaceResult<()> {
@@ -43,7 +43,7 @@ fn validate(input: &Goal) -> WorkspaceResult<()> {
     Ok(())
 }
 
-fn save(connection: &Connection, input: &Goal) -> WorkspaceResult<i64> {
+pub(super) fn save(connection: &Connection, input: &Goal) -> WorkspaceResult<i64> {
     validate(input)?;
     if let Some(id) = input.id {
         let count=connection.execute(
@@ -63,7 +63,7 @@ fn save(connection: &Connection, input: &Goal) -> WorkspaceResult<i64> {
     }
 }
 
-fn list(connection: &Connection) -> WorkspaceResult<Vec<Goal>> {
+pub(super) fn list(connection: &Connection) -> WorkspaceResult<Vec<Goal>> {
     let mut statement=connection.prepare(
         "SELECT id,name,target_pence,progress_pence,target_date,notes FROM savings_goals ORDER BY name,id"
     ).map_err(|_| WorkspaceError::Storage)?;

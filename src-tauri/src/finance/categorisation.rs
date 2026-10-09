@@ -36,27 +36,40 @@ impl Decision {
     }
 }
 
-fn atomic<T>(
+pub(super) fn atomic<T>(
     connection: &Connection,
     operation: impl FnOnce() -> WorkspaceResult<T>,
 ) -> WorkspaceResult<T> {
+    let standalone = connection.is_autocommit();
     connection
         .execute_batch("SAVEPOINT categorisation")
         .map_err(|_| WorkspaceError::Storage)?;
     match operation() {
-        Ok(result) => {
-            connection
-                .execute_batch("RELEASE categorisation")
-                .map_err(|_| WorkspaceError::Storage)?;
-            Ok(result)
-        }
+        Ok(result) => match connection.execute_batch("RELEASE categorisation") {
+            Ok(()) => Ok(result),
+            Err(_) => {
+                rollback(connection, standalone)?;
+                Err(WorkspaceError::Storage)
+            }
+        },
         Err(error) => {
-            connection
-                .execute_batch("ROLLBACK TO categorisation; RELEASE categorisation")
-                .map_err(|_| WorkspaceError::Storage)?;
+            rollback(connection, standalone)?;
             Err(error)
         }
     }
+}
+
+fn rollback(connection: &Connection, standalone: bool) -> WorkspaceResult<()> {
+    if !connection.is_autocommit() {
+        connection
+            .execute_batch(if standalone {
+                "ROLLBACK"
+            } else {
+                "ROLLBACK TO categorisation; RELEASE categorisation"
+            })
+            .map_err(|_| WorkspaceError::Storage)?;
+    }
+    Ok(())
 }
 
 pub(super) fn migrate(connection: &Connection) -> WorkspaceResult<()> {
@@ -134,7 +147,7 @@ pub(super) fn migrate(connection: &Connection) -> WorkspaceResult<()> {
     })
 }
 
-fn rules(connection: &Connection) -> WorkspaceResult<Vec<CategoryRule>> {
+pub(super) fn rules(connection: &Connection) -> WorkspaceResult<Vec<CategoryRule>> {
     Ok(matching_rules(connection)?
         .into_iter()
         .map(|item| item.rule)
@@ -251,7 +264,7 @@ fn classify_with(rules: &[MatchingRule], kind: &str, merchant: Option<&str>) -> 
     }
 }
 
-fn save_rule(connection: &Connection, input: &CategoryRule) -> WorkspaceResult<i64> {
+pub(super) fn save_rule(connection: &Connection, input: &CategoryRule) -> WorkspaceResult<i64> {
     let pattern =
         normalize_merchant(Some(&input.pattern)).ok_or(WorkspaceError::InvalidFinancialInput)?;
     if input.pattern.chars().count() > 120
@@ -295,7 +308,10 @@ fn save_rule(connection: &Connection, input: &CategoryRule) -> WorkspaceResult<i
     }
 }
 
-fn save_category_from(connection: &Connection, input: &CategoryInput) -> WorkspaceResult<i64> {
+pub(super) fn save_category_from(
+    connection: &Connection,
+    input: &CategoryInput,
+) -> WorkspaceResult<i64> {
     let name = input.name.trim();
     if name.is_empty()
         || name.chars().count() > 60
@@ -463,6 +479,34 @@ pub(crate) fn reset_transaction_category(
 mod tests {
     use super::super::tests::finance_db;
     use super::*;
+
+    #[test]
+    fn failed_nested_operation_preserves_the_callers_transaction() {
+        let connection = finance_db();
+        connection
+            .execute_batch("BEGIN; UPDATE categories SET name='Outer change' WHERE id=1;")
+            .expect("outer transaction");
+        let result: WorkspaceResult<()> = atomic(&connection, || {
+            connection
+                .execute("UPDATE categories SET name='Inner change' WHERE id=1", [])
+                .expect("inner operation");
+            Err(WorkspaceError::Storage)
+        });
+        assert!(matches!(result, Err(WorkspaceError::Storage)));
+        assert!(!connection.is_autocommit());
+        assert_eq!(
+            connection
+                .query_row("SELECT name FROM categories WHERE id=1", [], |row| row
+                    .get::<_, String>(
+                    0
+                ))
+                .expect("name"),
+            "Outer change"
+        );
+        connection
+            .execute_batch("ROLLBACK")
+            .expect("outer rollback");
+    }
 
     fn category_id(connection: &Connection, name: &str) -> i64 {
         connection

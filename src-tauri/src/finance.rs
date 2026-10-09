@@ -6,6 +6,7 @@ use super::{AppState, WorkspaceError, WorkspaceResult};
 
 pub(super) mod budgets;
 pub(super) mod categorisation;
+pub(super) mod private_data;
 pub(super) mod savings;
 
 const MAX_AMOUNT_PENCE: i64 = 99_999_999_999;
@@ -539,17 +540,7 @@ fn list_transactions_from(
         _ => return Err(WorkspaceError::InvalidFinancialInput),
     };
     let query = filter.search.as_deref().unwrap_or("").trim();
-    let search_pattern = if query.is_empty() {
-        String::new()
-    } else {
-        format!(
-            "%{}%",
-            query
-                .replace('\\', "\\\\")
-                .replace('%', "\\%")
-                .replace('_', "\\_")
-        )
-    };
+    let search_pattern = search_pattern(query);
     let page_size = filter.page_size as i64;
     let offset = (filter.page * filter.page_size) as i64;
     let where_clause = "WHERE (?1 IS NULL OR substr(t.transaction_date, 1, 7) = ?1)
@@ -616,6 +607,20 @@ fn list_transactions_from(
         page: filter.page,
         page_size: filter.page_size,
     })
+}
+
+fn search_pattern(query: &str) -> String {
+    let query = query.trim();
+    if query.is_empty() {
+        return String::new();
+    }
+    format!(
+        "%{}%",
+        query
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    )
 }
 
 fn monthly_summary(connection: &Connection, month: &str) -> WorkspaceResult<MonthlySummary> {

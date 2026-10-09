@@ -16,6 +16,7 @@ import "./Dashboard.css";
 import CategorisationSettings from "./CategorisationSettings";
 import Budgets from "./Budgets";
 import SavingsGoals from "./SavingsGoals";
+import PrivateData from "./PrivateData";
 
 const PAGE_SIZE = 10;
 
@@ -43,6 +44,7 @@ function Dashboard({ onLock }: Props) {
   const [showSettings, setShowSettings] = useState(false);
   const [showBudgets, setShowBudgets] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
+  const [showPrivateData, setShowPrivateData] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [financeError, setFinanceError] = useState("");
   const [transactionError, setTransactionError] = useState("");
@@ -120,6 +122,13 @@ function Dashboard({ onLock }: Props) {
 
   function refresh() {
     setRefreshKey((key) => key + 1);
+  }
+
+  function restored() {
+    setShowBudgets(false); setShowGoals(false); setShowSettings(false); setShowForm(false);
+    setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); setPendingDelete(null);
+    setTransactions(null);
+    refresh();
   }
 
   function resetForm() {
@@ -306,9 +315,13 @@ function Dashboard({ onLock }: Props) {
                   onClick={() => setShowBudgets((value) => !value)}>Monthly budgets and insights</button>
                 <button className="lock-button" type="button" aria-expanded={showGoals}
                   onClick={() => setShowGoals((value) => !value)}>Manage savings goals</button>
+                <button className="lock-button" type="button" aria-expanded={showPrivateData}
+                  onClick={() => setShowPrivateData((value) => !value)}>Private export and backup</button>
               </div>
               {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey} />}
               {showGoals && <SavingsGoals />}
+              {showPrivateData && <PrivateData key={month} month={month} accounts={finance.accounts} categories={finance.categories}
+                search={search} kind={kindFilter} categoryId={categoryFilter} onRestored={restored} />}
 
               <section className="insight-grid">
                 <article className="panel trend-panel">

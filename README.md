@@ -11,7 +11,7 @@ PennyPilot is a local-first personal finance and subscription tracker for the UK
 - The database lives in the operating-system application-data directory. On Unix, the workspace directory is restricted to the current user. On Windows, it is under the current user's application-data location.
 - SQLCipher's automatic diagnostic logging is disabled at compile time. This avoids recursive memory-lock logging on Windows when `VirtualLock` is denied; cipher memory security remains enabled, and database errors are still returned to the application.
 
-The recovery key is available only through the OS credential store on the device where the workspace was created. It allows a user to set a new passphrase on that device; it is not a cloud or cross-device recovery service. Keep encrypted backups once that feature is available. Anyone who can use the same OS profile and access the application's recovery credential may be able to recover the database, so protect the device account.
+The recovery key is available only through the OS credential store on the device where the workspace was created. It allows a user to set a new passphrase on that device; it is not a cloud or cross-device recovery service. Keep encrypted backups and their separate backup passphrases. Anyone who can use the same OS profile and access the application's recovery credential may be able to recover the database, so protect the device account.
 
 The unlocked workspace now includes a financial overview backed by encrypted SQLite records. New workspaces receive a GBP main account and starter income/expense categories; they do not receive fictional financial transactions or hardcoded dashboard totals. Transactions are entered manually in this increment.
 
@@ -51,7 +51,41 @@ Past months use their full calendar period (including leap days); the current mo
 
 The inputs are shown with each calculation. Goal progress is never inferred from imported income, transaction history, net cash flow or an assumed bank balance. Goals do not move or reserve funds. Target dates are user preferences, not estimated completion dates; this release intentionally makes no projected outcomes. Edits and confirmed deletions do not change transactions.
 
-CSV import, custom accounts, recurring payments, and backup/export remain planned work.
+## Private transaction export
+
+Open **Private export and backup** and review the CSV date range, account, category, kind and literal search filter. Defaults copy the dashboard month and filters when the panel is opened. Export includes all matching rows, not just the current page. Both date endpoints are inclusive. A separate plaintext-disclosure checkbox is required; no file is uploaded or shared.
+
+CSV format is UTF-8 with a BOM for spreadsheet compatibility, comma separators, CRLF record endings and quoted data cells with doubled embedded quotes. Source dates are `YYYY-MM-DD`; currency is explicitly `GBP`; amounts are positive decimal pounds with exactly two places **and** integer pence. `kind` supplies direction: refunds are not income and transfers are not spending. The whitelist contains transaction ID, source date, account name, kind, amounts/currency, category, original and normalized merchant, description and category provenance. It excludes source IDs, goal notes, workspace keys, credentials and passphrases. Spreadsheet-sensitive text beginning with `=`, `+`, `-`, `@` (including leading whitespace/control characters and full-width equivalents) is prefixed with an apostrophe. This intentionally changes report text for safety; CSV is not a backup or a lossless re-import format.
+
+Exports are plaintext financial information. Protect or deliberately remove them when no longer needed. A scope over 100,000 transactions or a file over 64 MiB is rejected without writing a partial export; narrow the scope.
+
+## Encrypted backup and safe restore
+
+Backups and exports are written only on explicit user action to private subfolders of the OS application-data directory, **outside the Git repository**. The UI displays exact local paths after success. Typical locations:
+
+| OS | Application-data root |
+| --- | --- |
+| macOS | `~/Library/Application Support/com.pennypilot.desktop/` |
+| Windows | `%APPDATA%\\com.pennypilot.desktop\\` |
+| Linux | `$XDG_DATA_HOME/com.pennypilot.desktop/` (usually `~/.local/share/com.pennypilot.desktop/`) |
+
+Encrypted files use `private-backups/pennypilot-<random-id>.ppbackup`; CSV uses `private-exports/pennypilot-<random-id>.csv`. Existing files are never overwritten. Unix folders are mode 0700 and files 0600; Windows files inherit the current user's application-data permissions. These folders are local, not an off-device disaster-recovery copy: use your file manager to copy encrypted backups to a private offline drive. PennyPilot does not configure cloud storage, upload, schedule exports or share files.
+
+SQLite/SQLCipher supports consistent read transactions and backup facilities. PennyPilot uses a **logical snapshot**, not a copy of the live encrypted database file: one read transaction under the workspace lock reads accounts, categories, source-dated transactions, source IDs/manual overrides/explanations, rules, budgets, comparison preference and savings goals/notes from the same database state. It carries domain data and identifiers, not internal database creation timestamps, app metadata or credential files. Merchant normalization is regenerated deterministically on restore. There are no hardcoded totals or stored inferred balances.
+
+Version 1 backups accept only schema 5 and GBP. The JSON envelope contains a format/version, fixed KDF/cipher labels, random 16-byte salt, random 24-byte nonce and hex ciphertext. The authenticated payload is encrypted using **XChaCha20-Poly1305**; the independent backup passphrase is derived with **Argon2id** (64 MiB memory, three passes, one lane, 32-byte key). Encryption is mandatory; there is no plaintext-backup option. A backup passphrase must have 12–1024 characters. Passphrases/keys are not stored inside the backup; serialized plaintext and derived key buffers are zeroized where practical. Losing the backup passphrase makes that file unrecoverable—even with the workspace OS recovery credential.
+
+Restore procedure:
+
+1. Unlock the destination workspace. On another device, create a new local workspace first; its unlock passphrase and recovery credential remain its own.
+2. Paste the absolute local `.ppbackup` file path and enter that file's backup passphrase. Review the replacement warning, check the consent box and type **RESTORE**.
+3. The file is size-bounded (64 MiB envelope, 24 MiB plaintext, at most 100,000 records per domain table / 200 rules). Version/currency, authenticated encryption, types, IDs, relationships, dates, amounts, categories, rule limits and manual provenance are validated in an isolated in-memory database **before current data changes**. Unknown/corrupted formats and incompatible backups are rejected.
+4. Before replacing anything, PennyPilot must successfully create an encrypted **pre-restore safety backup** in `private-backups`, using the backup passphrase just entered. A safety-backup failure aborts restore. After successful restore, its exact path is shown. A failed write may also leave this safety file in that folder.
+5. Domain records are replaced in one SQLite transaction in the existing SQLCipher database. A failed write or final commit rolls back deletions and inserts, including on the live application connection; successful restore is all-or-nothing, not a merge. Workspace key envelopes, OS recovery credentials and unlock passphrases are never replaced. Keep the safety backup until you have reviewed the restored data.
+
+Round-trip, cross-device/different-key persistence, corrupted-file, wrong-passphrase, incompatible-schema, invalid-record, injected-write-failure and commit-lock-failure tests cover the restore contract. CSV and raw database files are not accepted as restore backups.
+
+CSV import, custom accounts and recurring payment detection remain planned work.
 
 ## Development
 
@@ -80,4 +114,4 @@ The gate runs frontend linting, type-checking, tests, a high-severity dependency
 
 ## Privacy and test data
 
-Use fictional data in development and automated tests. Never commit real statements, database files, exports, backups, secrets, or passphrases. CSV/report exports, when implemented, will be plaintext and must be initiated by the user with a clear sensitivity warning; backups are planned to remain encrypted.
+Use fictional data in development and automated tests. Never commit real statements, database files, exports, backups, secrets, or passphrases. CSV exports are plaintext and require deliberate disclosure consent; backups are always independently passphrase-encrypted. The publishing script rejects database files, key files and `.ppbackup` files.

@@ -140,6 +140,9 @@
   font: inherit;
   resize: vertical;
 }
+.local-file-path { overflow-wrap: anywhere; font-size: 12px; line-height: 1.6; }
+.transaction-form .consent-label { display: flex; align-items: flex-start; gap: 8px; margin: 15px 0; font-size: 12px; }
+.transaction-form .consent-label input { flex: 0 0 auto; width: auto; min-height: auto; margin-top: 2px; }
 
 .dashboard-actions {
   display: flex;

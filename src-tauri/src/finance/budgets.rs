@@ -1,11 +1,11 @@
 use super::*;
 
-#[derive(Deserialize)]
+#[derive(Clone, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct BudgetInput {
-    month: String,
-    category_id: i64,
-    limit_pence: i64,
+    pub(super) month: String,
+    pub(super) category_id: i64,
+    pub(super) limit_pence: i64,
 }
 
 #[derive(Serialize)]
@@ -62,7 +62,7 @@ fn month_end(month: &str) -> WorkspaceResult<String> {
     Err(WorkspaceError::InvalidFinancialInput)
 }
 
-fn save(connection: &Connection, input: &BudgetInput) -> WorkspaceResult<()> {
+pub(super) fn save(connection: &Connection, input: &BudgetInput) -> WorkspaceResult<()> {
     validate_month(&input.month)?;
     if !(1..=MAX_AMOUNT_PENCE).contains(&input.limit_pence) {
         return Err(WorkspaceError::InvalidFinancialInput);

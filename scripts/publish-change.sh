@@ -33,11 +33,11 @@ git diff --cached --check
 git diff --cached --name-only -z |
 while IFS= read -r -d '' file; do
   case "$file" in
-    *.db|*.sqlite|*.sqlite3|\
+    *.db|*.sqlite|*.sqlite3|*.ppbackup|\
     .env|.env.*|*/.env|*/.env.*|\
     *.pem|*.key|\
     private-data/*|bank-statements/*|\
-    uploads/*|exports/*|backups/*|data/*)
+    uploads/*|exports/*|backups/*|private-exports/*|private-backups/*|data/*)
       echo "ERROR: Sensitive file staged: $file"
       exit 1
       ;;

@@ -58,6 +58,16 @@ enum WorkspaceError {
     SourceTransactionChanged,
     #[error("Enter a goal name (up to 80 characters), positive GBP target, non-negative progress, valid optional calendar date and notes up to 1000 characters.")]
     InvalidGoal,
+    #[error("The backup is invalid, corrupted, too large or incompatible. Only PennyPilot encrypted backup version 1 / schema 5 is supported. Existing data was not replaced.")]
+    InvalidBackup,
+    #[error("The backup passphrase is incorrect or its authenticated contents were changed. Existing data was not replaced.")]
+    InvalidBackupPassword,
+    #[error("Backup passphrases must contain between 12 and 1024 characters.")]
+    InvalidBackupPassphrase,
+    #[error("Explicit confirmation is required for plaintext export or data replacement.")]
+    DisclosureConfirmation,
+    #[error("The selected scope exceeds 100000 records or the private data size limit. Narrow the scope; no partial file was exported.")]
+    DataLimit,
 }
 
 type WorkspaceResult<T> = Result<T, WorkspaceError>;
@@ -552,7 +562,11 @@ pub fn run() {
             finance::budgets::save_budget_preferences,
             finance::savings::list_savings_goals,
             finance::savings::save_savings_goal,
-            finance::savings::delete_savings_goal
+            finance::savings::delete_savings_goal,
+            finance::private_data::private_data_locations,
+            finance::private_data::export_private_transactions,
+            finance::private_data::backup::create_private_backup,
+            finance::private_data::backup::restore_private_backup
         ])
         .run(tauri::generate_context!())
         .expect("failed to start PennyPilot");
