@@ -886,6 +886,13 @@
   font-size: 11px;
 }
 
+.finance-record-controls {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .dashboard-error .text-button {
   flex: 0 0 auto;
   margin: 0;

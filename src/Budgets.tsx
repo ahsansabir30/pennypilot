@@ -7,7 +7,7 @@ import type { BudgetData, Category } from "./finance";
 export default function Budgets({ month, categories, refreshKey, onChanged, headingRef }: {
   month: string; categories: Category[]; refreshKey: number; onChanged?: () => void; headingRef?: Ref<HTMLHeadingElement>;
 }) {
-  const [data, setData] = useState<BudgetData | null>(null);
+  const [result, setResult] = useState<{ key: string; data: BudgetData | null; error: string } | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [revision, setRevision] = useState(0);
@@ -15,15 +15,18 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
   const [form, setForm] = useState({ categoryId: "", limit: "" });
   const [deleting, setDeleting] = useState<number | null>(null);
   const eligible = categories.filter((category) => category.categoryType === "expense");
-  const current = data?.month === month ? data : null;
+  const requestKey = `${month}:${refreshKey}:${revision}`;
+  const current = result?.key === requestKey && result.data?.month === month ? result.data : null;
+  const loadError = result?.key === requestKey ? result.error : "";
+  const displayedError = error || loadError;
 
   useEffect(() => {
     let active = true;
     invoke<BudgetData>("list_budgets", { month, asOf: localIsoDate() })
-      .then((result) => { if (active) { setData(result); setError(""); } })
-      .catch((error: unknown) => { if (active) setError(financeError(error)); });
+      .then((data) => { if (active) setResult({ key: requestKey, data, error: "" }); })
+      .catch((error: unknown) => { if (active) setResult({ key: requestKey, data: null, error: financeError(error) }); });
     return () => { active = false; };
-  }, [month, refreshKey, revision]);
+  }, [month, refreshKey, revision, requestKey]);
 
   async function mutate(command: string, args: Record<string, unknown>, success: string) {
     setBusy(true); setError(""); setMessage("");
@@ -53,9 +56,9 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
   return <section id="budgets-panel" className="panel finance-management" aria-labelledby="budgets-title">
     <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly category budgets</h2>
     <p className="policy-note">{month} only. Expenses less refunds; transfers excluded. Recorded history may be incomplete.</p>
-    {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry budgets</button></div>}
+    {displayedError && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
-    {!current && !error && <p role="status">Loading budgets...</p>}
+    {!current && !displayedError && <p role="status">Loading budgets...</p>}
     {current && <>
       <details className="calculation-details"><summary>Period details</summary><p className="policy-note">As of {current.asOf}: {current.periodEnd
         ? `current period ${month}-01 through ${current.periodEnd}`

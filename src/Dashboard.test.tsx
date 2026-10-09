@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import Dashboard from "./Dashboard";
@@ -106,6 +106,17 @@ function planningFixture(command: string) {
   if (command === "list_savings_goals") return [];
 }
 
+function deferred<T>() {
+  let resolve!: (value: T) => void;
+  let reject!: (reason: Error) => void;
+  const promise = new Promise<T>((fulfil, fail) => { resolve = fulfil; reject = fail; });
+  return { promise, resolve, reject };
+}
+
+function isCommandArgs(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value) && !(value instanceof ArrayBuffer);
+}
+
 describe("financial dashboard", () => {
   beforeEach(() => {
     invokeMock.mockReset();
@@ -129,6 +140,110 @@ describe("financial dashboard", () => {
     expect(screen.getByText("£1,800.00")).toBeTruthy();
     expect(screen.getByText("North Market")).toBeTruthy();
     expect(invokeMock).toHaveBeenCalledWith("list_finance_data", expect.objectContaining({ month: expect.any(String) }));
+  });
+
+  it("hides prior totals and rows during month changes, failure and out-of-order responses", async () => {
+    const january = deferred<FinanceData>();
+    const february = deferred<FinanceData>();
+    invokeMock.mockImplementation(async (command, args) => {
+      const input = isCommandArgs(args) ? args : {};
+      if (command === "list_finance_data") {
+        if (input.month === "2024-01") return january.promise;
+        if (input.month === "2024-02") return february.promise;
+        return financeData;
+      }
+      if (command === "list_transactions") return transactionPage;
+      return planningFixture(command);
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    const picker = screen.getByLabelText("Dashboard month");
+    fireEvent.change(picker, { target: { value: "2024-01" } });
+    expect(screen.queryByRole("region", { name: /financial summary/ })).toBeNull();
+    expect(screen.queryByText("£2,500.00")).toBeNull();
+    fireEvent.change(picker, { target: { value: "2024-02" } });
+    await act(async () => february.reject(new Error("Fictional February load failed")));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Fictional February load failed"));
+    expect(screen.queryByRole("region", { name: /financial summary/ })).toBeNull();
+    await act(async () => january.resolve({ ...financeData, summary: { ...financeData.summary, month: "2024-01" } }));
+    expect(screen.queryByText("£2,500.00")).toBeNull();
+    expect(picker).toHaveProperty("value", "2024-02");
+  });
+
+  it("does not retain actionable rows during a pending or failed filter request", async () => {
+    const pending = deferred<TransactionPage>();
+    invokeMock.mockImplementation(async (command, args) => {
+      const input = isCommandArgs(args) ? args : {};
+      if (command === "list_finance_data") return financeData;
+      if (command === "list_transactions") return isCommandArgs(input.filter) &&
+        input.filter.search === "Delayed" ? pending.promise : transactionPage;
+      return planningFixture(command);
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    fireEvent.change(screen.getByRole("textbox", { name: "Search transactions" }), { target: { value: "Delayed" } });
+    expect(screen.queryByText("North Market")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete North Market" })).toBeNull();
+    expect(screen.getByText("Loading transactions...")).toBeTruthy();
+    await act(async () => pending.reject(new Error("Fictional search failed")));
+    expect(await screen.findByText("Records unavailable")).toBeTruthy();
+    expect(screen.queryByText("No transactions match these filters.")).toBeNull();
+    expect(screen.queryByText("North Market")).toBeNull();
+  });
+
+  it("hides stale aggregates and rows when a post-mutation refresh fails", async () => {
+    let changed = false;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_finance_data") {
+        if (changed) throw new Error("Fictional summary refresh failed");
+        return financeData;
+      }
+      if (command === "list_transactions") {
+        if (changed) throw new Error("Fictional records refresh failed");
+        return transactionPage;
+      }
+      if (command === "delete_transaction") { changed = true; return; }
+      return planningFixture(command);
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete North Market" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    await screen.findByText("Fictional summary refresh failed");
+    expect(screen.queryByRole("region", { name: /financial summary/ })).toBeNull();
+    expect(screen.queryByText("North Market")).toBeNull();
+    expect(screen.queryByText("£2,500.00")).toBeNull();
+  });
+
+  it.each([1, 11])("clamps the page after deleting the final page's only record from $0 records", async (count) => {
+    let records = Array.from({ length: count }, (_, index) => ({
+      ...transactionPage.transactions[0], id: index + 1, merchant: `Fictional merchant ${index + 1}`,
+    }));
+    invokeMock.mockImplementation(async (command, args) => {
+      const input = isCommandArgs(args) ? args : {};
+      if (command === "list_finance_data") return financeData;
+      if (command === "list_transactions") {
+        const filter = input.filter;
+        const page = filter && typeof filter === "object" && "page" in filter && typeof filter.page === "number" ? filter.page : 0;
+        return { ...transactionPage, total: records.length, page, transactions: records.slice(page * 10, (page + 1) * 10) };
+      }
+      if (command === "delete_transaction") { records = records.filter((record) => record.id !== input.transactionId); return; }
+      return planningFixture(command);
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("Fictional merchant 1");
+    if (count > 10) fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(await screen.findByRole("button", { name: `Delete Fictional merchant ${count}` }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    if (count > 10) {
+      await screen.findByText("1–10 of 10");
+      expect(screen.queryByText("No transactions this month.")).toBeNull();
+      expect(screen.getByText("Fictional merchant 1")).toBeTruthy();
+    } else {
+      await screen.findByText("No records");
+      expect(screen.getByText("No transactions this month.")).toBeTruthy();
+    }
+    expect(screen.queryByText("11–10 of 10")).toBeNull();
   });
 
   it("creates a transaction using integer pence from the entered decimal", async () => {
@@ -172,7 +287,7 @@ describe("financial dashboard", () => {
       }),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Delete North Market" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete North Market" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm" }));
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("delete_transaction", { transactionId: 8 }),
@@ -298,7 +413,7 @@ describe("financial dashboard", () => {
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
     fireEvent.change(screen.getByRole("textbox", { name: "Search transactions" }), { target: { value: "North" } });
-    fireEvent.click(screen.getByRole("button", { name: "Delete North Market" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete North Market" }));
     fireEvent.click(screen.getByRole("button", { name: /Add transaction/ }));
     fireEvent.click(screen.getByRole("button", { name: "Private export and backup" }));
     fireEvent.change(screen.getByLabelText("Local backup file path"), { target: { value: "/fictional/example.ppbackup" } });

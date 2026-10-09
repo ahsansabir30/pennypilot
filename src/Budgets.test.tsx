@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import Budgets from "./Budgets";
@@ -83,10 +83,24 @@ describe("monthly budgets", () => {
     mock.mockClear();
     view.rerender(<Budgets month="2024-02" categories={categories} refreshKey={1} />);
     await waitFor(() => expect(mock).toHaveBeenCalledWith("list_budgets", expect.objectContaining({ month: "2024-02" })));
-    fireEvent.click(screen.getByRole("button", { name: "Remove budget for Fictional Food" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Remove budget for Fictional Food" }));
     expect(mock).not.toHaveBeenCalledWith("delete_budget", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Confirm budget removal" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_budget", { month: "2024-02", categoryId: 1 }));
+  });
+
+  it("hides old usage during a refresh and does not show it after a failed reload", async () => {
+    const view = render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
+    await screen.findByText("£123.45 used / £100.00 limit");
+    let reject!: (error: Error) => void;
+    mock.mockImplementation(() => new Promise((_, fail) => { reject = fail; }));
+    view.rerender(<Budgets month="2024-02" categories={categories} refreshKey={1} />);
+    expect(screen.queryByText("£123.45 used / £100.00 limit")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Remove budget for Fictional Food" })).toBeNull();
+    expect(screen.getByText("Loading budgets...")).toBeTruthy();
+    await act(async () => reject(new Error("Fictional usage reload failed")));
+    expect(screen.getByRole("alert").textContent).toContain("Fictional usage reload failed");
+    expect(screen.queryByText("£123.45 used / £100.00 limit")).toBeNull();
   });
 
   it("keeps pending budget inputs fixed and labels missing records honestly", async () => {

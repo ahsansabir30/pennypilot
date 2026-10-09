@@ -1,4 +1,5 @@
 import { test as base, expect } from "@playwright/test";
+import { readFileSync } from "node:fs";
 import type { BudgetData, Category, CategoryRule, FinanceData, SavingsGoal, Transaction } from "../src/finance";
 
 type StartStatus = "new" | "locked" | "unlocked";
@@ -10,6 +11,7 @@ declare global {
       failNext: (command: string, message: string, count?: number) => void;
       hold: (command: string) => void;
       release: (command: string) => void;
+      policyViolations: string[];
     };
   }
 }
@@ -23,6 +25,13 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
     page.on("pageerror", (error) => consoleErrors.push(error.message));
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
     await page.clock.install({ time: new Date("2024-02-15T12:00:00Z") });
+    const config = JSON.parse(readFileSync("src-tauri/tauri.conf.json", "utf8"));
+    const csp: unknown = config.app?.security?.csp;
+    if (typeof csp !== "string" || !csp) throw new Error("Expected the production Tauri CSP.");
+    await page.route("http://127.0.0.1:1422/", async (route) => {
+      const response = await route.fetch();
+      await route.fulfill({ response, headers: { ...response.headers(), "content-security-policy": csp } });
+    });
     // Mirrors Tauri's `freezePrototype`, which runs before any app code in the desktop webview.
     await page.addInitScript(() => { Object.freeze(Object.prototype); });
     await page.addInitScript(({ initialStatus, blockedCommand, largeAggregates }: { initialStatus: StartStatus; blockedCommand: string | null; largeAggregates: boolean }) => {
@@ -59,8 +68,11 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
       const failures = new Map<string, { message: string; count: number }>();
       const holds = new Map<string, { pending: Promise<void>; release: () => void }>();
       const calls: Call[] = [];
+      const policyViolations: string[] = [];
+      document.addEventListener("securitypolicyviolation", (event) => policyViolations.push(event.violatedDirective));
       window.__pennyTest = {
         calls,
+        policyViolations,
         failNext: (command, message, count = 1) => failures.set(command, { message, count }),
         hold: (command) => {
           const pending = new Promise<void>((release) => holds.set(command, { pending: Promise.resolve(), release }));
@@ -292,6 +304,7 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
     }, { initialStatus: startStatus, blockedCommand, largeAggregates });
     await runPage(page);
     expect(await page.evaluate(() => Object.isFrozen(Object.prototype)), "App runs with a frozen Object.prototype").toBe(true);
+    expect(await page.evaluate(() => window.__pennyTest.policyViolations), "Normal flows comply with the production CSP").toEqual([]);
     expect(consoleErrors, "Normal app flows must not emit console errors").toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "No horizontal page overflow").toBe(true);
     const undersized = await page.getByRole("button").evaluateAll((buttons) => buttons

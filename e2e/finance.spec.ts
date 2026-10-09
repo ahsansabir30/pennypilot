@@ -184,7 +184,7 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await panel.getByText("Calculation details", { exact: true }).click();
   await expect(panel.getByText(/No comparable category records/)).toBeVisible();
   await panel.getByRole("combobox", { name: "Comparison period", exact: true }).selectOption("full_month");
-  await expect(panel.getByRole("status")).toHaveText("Comparison preference saved.");
+  await expect(panel.getByRole("status").filter({ hasText: "Comparison preference saved." })).toHaveText("Comparison preference saved.");
   await expect(panel.getByRole("combobox", { name: "Comparison period", exact: true })).toHaveValue("full_month");
   await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
   await panel.getByRole("button", { name: "Cancel budget removal", exact: true }).click();
@@ -314,9 +314,24 @@ test("private export consent, backup validation, failed restore and successful r
   await expect(panel.getByRole("alert")).toContainText("Existing data was not replaced.");
   await expect(page.getByText("Fictional post-backup expense", { exact: true })).toBeVisible();
   await panel.getByLabel("Restore backup passphrase").fill("fictional backup passphrase");
+  await page.evaluate(() => {
+    window.__pennyTest.hold("list_finance_data");
+    window.__pennyTest.hold("list_transactions");
+  });
   await panel.getByRole("button", { name: "Validate and restore backup", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText("/fictional/private-backups/safety.ppbackup");
+  await expect(page.getByRole("region", { name: /financial summary/ })).toHaveCount(0);
   await expect(page.getByText("Fictional post-backup expense", { exact: true })).toHaveCount(0);
+  await page.evaluate(() => {
+    window.__pennyTest.failNext("list_finance_data", "Fictional restored summary unavailable.");
+    window.__pennyTest.release("list_finance_data");
+    window.__pennyTest.release("list_transactions");
+  });
+  await expect(page.getByRole("alert")).toContainText("Fictional restored summary unavailable.");
+  await expect(page.getByRole("region", { name: /financial summary/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByRole("region", { name: "2024-02 financial summary" })).toContainText("£124.00");
+  await expect(panel.getByRole("status")).toContainText("/fictional/private-backups/safety.ppbackup");
   await expect(panel.getByLabel("Restore backup passphrase")).toHaveValue("");
   await expect(panel.getByRole("button", { name: "Validate and restore backup", exact: true })).toBeDisabled();
 });
@@ -336,7 +351,7 @@ test("failed locks stay visible, retry succeeds and unlock keeps financial recor
 
 test("failed requests have real retries and mutations do not falsely report success", async ({ page }) => {
   await home(page);
-  await page.evaluate(() => window.__pennyTest.failNext("list_category_rules", "Rules could not be loaded.", 2));
+  await page.evaluate(() => window.__pennyTest.failNext("list_category_rules", "Rules could not be loaded."));
   await page.getByRole("button", { name: "Manage categories and rules", exact: true }).click();
   const panel = page.getByRole("region", { name: "Categories and rules" });
   await expect(panel.getByRole("alert")).toContainText("Rules could not be loaded.");
@@ -360,6 +375,8 @@ test("dashboard and planning retries recover without showing missing history as 
   });
   await page.getByRole("textbox", { name: "Dashboard month", exact: true }).fill("2024-01");
   await expect(page.getByRole("alert").filter({ hasText: "Finance unavailable." })).toBeVisible();
+  await expect(page.getByRole("region", { name: /financial summary/ })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Monthly trend", exact: true })).toHaveCount(0);
   await expect(page.getByRole("article", { name: "Budget check-in" }).getByRole("alert")).toContainText("Budget overview unavailable.");
   await page.getByRole("button", { name: "Retry budget overview", exact: true }).click();
   await expect(page.getByRole("article", { name: "Budget check-in" }).getByText("No budgets this month.", { exact: true })).toBeVisible();
@@ -368,18 +385,122 @@ test("dashboard and planning retries recover without showing missing history as 
   await expect(page.getByRole("article", { name: "Savings at a glance" }).getByRole("alert")).toContainText("Savings overview unavailable.");
   await page.getByRole("button", { name: "Retry savings overview", exact: true }).click();
   await expect(page.getByRole("article", { name: "Savings at a glance" }).getByText("No savings goals yet.", { exact: true })).toBeVisible();
-  await page.evaluate(() => window.__pennyTest.failNext("list_budgets", "Budget editor unavailable.", 2));
+  await page.evaluate(() => window.__pennyTest.failNext("list_budgets", "Budget editor unavailable."));
   await page.getByRole("button", { name: "Manage budgets", exact: true }).click();
   const budgets = page.getByRole("region", { name: "Monthly category budgets" });
   await expect(budgets.getByRole("alert")).toContainText("Budget editor unavailable.");
   await budgets.getByRole("button", { name: "Retry budgets", exact: true }).click();
   await expect(budgets.getByText("No budgets this month.", { exact: true })).toBeVisible();
-  await page.evaluate(() => window.__pennyTest.failNext("list_savings_goals", "Goal editor unavailable.", 2));
+  await page.evaluate(() => window.__pennyTest.failNext("list_savings_goals", "Goal editor unavailable."));
   await page.getByRole("button", { name: "Manage goals", exact: true }).click();
   const goals = page.getByRole("region", { name: "Savings goals", exact: true });
   await expect(goals.getByRole("alert")).toContainText("Goal editor unavailable.");
   await goals.getByRole("button", { name: "Retry goals", exact: true }).click();
   await expect(goals.getByText("No savings goals yet.", { exact: true })).toBeVisible();
+});
+
+test("pending month and filter requests hide stale figures and actionable transactions", async ({ page }) => {
+  await home(page);
+  await page.evaluate(() => {
+    window.__pennyTest.hold("list_finance_data");
+    window.__pennyTest.hold("list_transactions");
+  });
+  await page.getByLabel("Dashboard month", { exact: true }).fill("2024-01");
+  await expect(page.getByText("Loading financial summary...", { exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: /financial summary/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Add transaction", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: /^Delete Fictional Merchant/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
+  await page.getByLabel("Dashboard month", { exact: true }).fill("2024-02");
+  await page.evaluate(() => {
+    window.__pennyTest.release("list_finance_data");
+    window.__pennyTest.release("list_transactions");
+  });
+  await expect(page.getByRole("region", { name: "2024-02 financial summary" })).toContainText("£124.00");
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+  await page.evaluate(() => {
+    window.__pennyTest.hold("list_transactions");
+    window.__pennyTest.failNext("list_transactions", "Fictional filter load failed.");
+  });
+  await page.getByRole("textbox", { name: "Search transactions", exact: true }).fill("Merchant 1");
+  await expect(page.getByText("Loading transactions...", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Delete Fictional Merchant/ })).toHaveCount(0);
+  await page.evaluate(() => window.__pennyTest.release("list_transactions"));
+  await expect(page.getByRole("alert")).toContainText("Fictional filter load failed.");
+  await expect(page.getByText("Records unavailable", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+});
+
+test("production CSP actively blocks inline scripts and native form submission", async ({ page }) => {
+  const response = await page.goto("/");
+  if (!response) throw new Error("Expected a production document response.");
+  const csp = response.headers()["content-security-policy"];
+  expect(csp).toContain("form-action 'none'");
+  const probe = await page.context().newPage();
+  try {
+    await probe.route("http://127.0.0.1:1422/csp-probe", (route) => route.fulfill({
+      contentType: "text/html", headers: { "content-security-policy": csp },
+      body: "<!doctype html><html><body>CSP test document</body></html>",
+    }));
+    await probe.goto("http://127.0.0.1:1422/csp-probe");
+    const result = await probe.evaluate(async () => {
+      async function violation(trigger: () => void) {
+        const event = new Promise<string>((resolve) => document.addEventListener("securitypolicyviolation",
+          (event) => resolve(event.effectiveDirective), { once: true }));
+        trigger();
+        return event;
+      }
+      const scriptDirective = await violation(() => {
+        const script = document.createElement("script");
+        script.textContent = "document.body.dataset.executed = 'yes'";
+        document.body.append(script);
+      });
+      const formDirective = await violation(() => {
+        const form = document.createElement("form");
+        form.action = "/blocked-native-submission";
+        form.method = "post";
+        document.body.append(form);
+        form.submit();
+      });
+      return { scriptDirective, formDirective, executed: document.body.dataset.executed ?? null };
+    });
+    expect(result).toEqual({ scriptDirective: "script-src-elem", formDirective: "form-action", executed: null });
+    expect(probe.url()).toBe("http://127.0.0.1:1422/csp-probe");
+  } finally {
+    await probe.close();
+  }
+});
+
+test("failed refresh after deletion never retains old financial totals or rows", async ({ page }) => {
+  await home(page);
+  await page.evaluate(() => {
+    window.__pennyTest.failNext("list_finance_data", "Fictional summary refresh failed.");
+    window.__pennyTest.failNext("list_transactions", "Fictional transaction refresh failed.");
+  });
+  await page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true }).click();
+  await page.getByRole("button", { name: "Confirm", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("Fictional summary refresh failed.");
+  await expect(page.getByRole("region", { name: /financial summary/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Delete Fictional Merchant/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Retry", exact: true }).click();
+  await expect(page.getByRole("region", { name: "2024-02 financial summary" })).toContainText("£108.00");
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 15", exact: true })).toBeVisible();
+});
+
+test("deleting the final page returns to remaining records without a false empty month", async ({ page }) => {
+  await home(page);
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  for (let id = 6; id >= 1; id--) {
+    await page.getByRole("button", { name: `Delete Fictional Merchant ${id}`, exact: true }).click();
+    await page.getByRole("button", { name: "Confirm", exact: true }).click();
+    await expect(page.getByRole("button", { name: `Delete Fictional Merchant ${id}`, exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByText("1–10 of 10", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+  await expect(page.getByText("No transactions this month.", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Previous", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Next", exact: true })).toBeDisabled();
 });
 
 test("pending transaction saves disable duplicate submits and close, then recalculate spending", async ({ page }) => {
@@ -406,7 +527,7 @@ test.describe("initial loading and failure", () => {
     await expect(page.getByRole("status")).toContainText("Loading your encrypted financial data");
     await expect(page.getByRole("heading", { name: "Financial overview" })).toHaveCount(0);
     await page.evaluate(() => {
-      window.__pennyTest.failNext("list_finance_data", "Initial finance unavailable.", 2);
+      window.__pennyTest.failNext("list_finance_data", "Initial finance unavailable.");
       window.__pennyTest.release("list_finance_data");
     });
     await expect(page.getByRole("alert")).toContainText("Initial finance unavailable.");
@@ -421,7 +542,7 @@ test.describe("workspace status retry", () => {
   test("Try again recovers a failed workspace check", async ({ page }) => {
     await page.goto("/");
     await page.evaluate(() => {
-      window.__pennyTest.failNext("workspace_status", "Workspace check unavailable.", 2);
+      window.__pennyTest.failNext("workspace_status", "Workspace check unavailable.");
       window.__pennyTest.release("workspace_status");
     });
     await expect(page.getByRole("alert")).toContainText("Workspace check unavailable.");

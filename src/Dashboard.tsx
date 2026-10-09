@@ -35,8 +35,8 @@ function currentMonth(): string {
 
 function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const [month, setMonth] = useState(currentMonth);
-  const [finance, setFinance] = useState<FinanceData | null>(null);
-  const [transactions, setTransactions] = useState<TransactionPage | null>(null);
+  const [financeResult, setFinanceResult] = useState<{ key: string; data: FinanceData | null; error: string } | null>(null);
+  const [transactionResult, setTransactionResult] = useState<{ key: string; data: TransactionPage | null; error: string } | null>(null);
   const [search, setSearch] = useState("");
   const [kindFilter, setKindFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -44,7 +44,6 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const [page, setPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
   const [planningRevision, setPlanningRevision] = useState(0);
-  const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [activePanel, setActivePanel] = useState<"budgets" | "goals" | "private" | "categories" | null>(null);
@@ -55,8 +54,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const budgetHeadingRef = useRef<HTMLHeadingElement>(null);
   const goalHeadingRef = useRef<HTMLHeadingElement>(null);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
-  const [financeError, setFinanceError] = useState("");
-  const [transactionError, setTransactionError] = useState("");
+  const [transactionActionError, setTransactionActionError] = useState("");
   const [formMessage, setFormMessage] = useState("");
   const [form, setForm] = useState({
     accountId: "",
@@ -67,6 +65,13 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     description: "",
     merchant: "",
   });
+  const financeKey = `${month}:${refreshKey}`;
+  const transactionKey = JSON.stringify([month, kindFilter, categoryFilter, search, sort, page, refreshKey]);
+  const finance = financeResult?.data;
+  const currentFinance = financeResult?.key === financeKey && !financeResult.error && finance?.summary.month === month ? finance : null;
+  const financeError = financeResult?.key === financeKey ? financeResult.error : "";
+  const transactions = transactionResult?.key === transactionKey ? transactionResult.data : null;
+  const transactionError = transactionActionError || (transactionResult?.key === transactionKey ? transactionResult.error : "");
 
   useEffect(() => { if (showBudgets) budgetHeadingRef.current?.focus(); }, [showBudgets]);
   useEffect(() => { if (showGoals) goalHeadingRef.current?.focus(); }, [showGoals]);
@@ -76,24 +81,20 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     void invoke<FinanceData>("list_finance_data", { month })
       .then((data) => {
         if (active) {
-          setFinance(data);
+          setFinanceResult({ key: financeKey, data, error: "" });
           setForm((current) => ({
             ...current,
             accountId: current.accountId || (data.accounts[0] ? String(data.accounts[0].id) : ""),
           }));
-          setFinanceError("");
         }
       })
       .catch((error: unknown) => {
-        if (active) setFinanceError(errorMessage(error));
-      })
-      .finally(() => {
-        if (active) setLoading(false);
+        if (active) setFinanceResult((previous) => ({ key: financeKey, data: previous?.data ?? null, error: errorMessage(error) }));
       });
     return () => {
       active = false;
     };
-  }, [month, refreshKey]);
+  }, [month, refreshKey, financeKey]);
 
   useEffect(() => {
     let active = true;
@@ -110,17 +111,21 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     })
       .then((data) => {
         if (active) {
-          setTransactions(data);
-          setTransactionError("");
+          const lastPage = Math.max(0, Math.ceil(data.total / PAGE_SIZE) - 1);
+          if (page > lastPage) {
+            setPage(lastPage);
+            return;
+          }
+          setTransactionResult({ key: transactionKey, data, error: "" });
         }
       })
       .catch((error: unknown) => {
-        if (active) setTransactionError(errorMessage(error));
+        if (active) setTransactionResult({ key: transactionKey, data: null, error: errorMessage(error) });
       });
     return () => {
       active = false;
     };
-  }, [month, kindFilter, categoryFilter, search, sort, page, refreshKey]);
+  }, [month, kindFilter, categoryFilter, search, sort, page, refreshKey, transactionKey]);
 
   const filteredCategories = useMemo(
     () =>
@@ -133,6 +138,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   );
 
   function refresh() {
+    setTransactionActionError("");
     setRefreshKey((key) => key + 1);
   }
 
@@ -151,7 +157,8 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   function restored() {
     setActivePanel("private"); setShowForm(false);
     setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); setPendingDelete(null);
-    setTransactions(null);
+    setTransactionResult(null);
+    setTransactionActionError("");
     refresh();
   }
 
@@ -208,7 +215,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   }
 
   async function updateCategory(transactionId: number, categoryId: string) {
-    setTransactionError("");
+    setTransactionActionError("");
     setBusy(true);
     try {
       await invoke("update_transaction_category", {
@@ -217,30 +224,30 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       });
       refresh();
     } catch (error) {
-      setTransactionError(errorMessage(error));
+      setTransactionActionError(errorMessage(error));
     } finally { setBusy(false); }
   }
 
   async function clearManualCategory(transactionId: number) {
-    setTransactionError("");
+    setTransactionActionError("");
     setBusy(true);
     try {
       await invoke("reset_transaction_category", { transactionId });
       refresh();
     } catch (error) {
-      setTransactionError(errorMessage(error));
+      setTransactionActionError(errorMessage(error));
     } finally { setBusy(false); }
   }
 
   async function deleteTransaction(transactionId: number) {
-    setTransactionError("");
+    setTransactionActionError("");
     setBusy(true);
     try {
       await invoke("delete_transaction", { transactionId });
       setPendingDelete(null);
       refresh();
     } catch (error) {
-      setTransactionError(errorMessage(error));
+      setTransactionActionError(errorMessage(error));
     } finally { setBusy(false); }
   }
 
@@ -252,10 +259,10 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     }));
   }
 
-  const monthly = finance?.summary;
-  const historyMaximum = (finance?.history.flatMap((item) => [BigInt(item.incomePence), BigInt(item.expensePence)]) ?? [])
+  const monthly = currentFinance?.summary;
+  const historyMaximum = (currentFinance?.history.flatMap((item) => [BigInt(item.incomePence), BigInt(item.expensePence)]) ?? [])
     .reduce((maximum, amount) => amount > maximum ? amount : maximum, 1n);
-  const categoryMaximum = (finance?.categorySpending.map((item) => absolutePence(BigInt(item.amountPence))) ?? [])
+  const categoryMaximum = (currentFinance?.categorySpending.map((item) => absolutePence(BigInt(item.amountPence))) ?? [])
     .reduce((maximum, amount) => amount > maximum ? amount : maximum, 1n);
 
   return (
@@ -277,7 +284,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       </header>
       {lockError && <p className="dashboard-error" role="alert">{lockError}</p>}
 
-      {loading && !finance ? (
+      {!finance && !financeError ? (
         <div className="dashboard-loading" role="status">
           <span className="spinner" />
           Loading your encrypted financial data…
@@ -310,8 +317,10 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
             </div>
           )}
 
-          {monthly && finance && (
+          {!currentFinance && !financeError && finance && <p role="status">Loading financial summary...</p>}
+          {finance && (
             <>
+              {monthly && <>
               <section className="summary-grid" aria-label={`${month} financial summary`}>
                 <SummaryCard
                   label="Income"
@@ -333,6 +342,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 />
               </section>
               <p className="policy-note">Net cash flow is not an account balance.</p>
+              </>}
               <nav className="finance-tools" aria-label="Workspace tools">
                 <a className="lock-button" href="#transactions-title">Transactions</a>
                 <button className="lock-button" type="button" aria-expanded={showBudgets}
@@ -344,13 +354,15 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
               </nav>
               <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision}
                 onBudgets={() => openPlanning("budgets")} onGoals={() => openPlanning("goals")} />
+              <fieldset className="finance-record-controls" disabled={!currentFinance}>
               {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey}
                 headingRef={budgetHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
               {showGoals && <SavingsGoals headingRef={goalHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
               {showPrivateData && <PrivateData key={month} month={month} accounts={finance.accounts} categories={finance.categories}
                 search={search} kind={kindFilter} categoryId={categoryFilter} onRestored={restored} />}
+              </fieldset>
 
-              <section className="insight-grid">
+              {currentFinance && monthly && <section className="insight-grid">
                 <article className="panel trend-panel">
                   <div className="panel-heading">
                     <div>
@@ -362,9 +374,9 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                       <i className="legend-spending" /> Spending
                     </span>
                   </div>
-                  {finance.history.length < 6 && <p className="policy-note">History before January 1000 is unavailable; only supported months are shown.</p>}
-                  <div className="trend-chart" role="img" aria-label={finance.history.length < 6 ? "Available income and spending trend" : "Six-month income and spending trend"}>
-                    {finance.history.map((item) => (
+                  {currentFinance.history.length < 6 && <p className="policy-note">History before January 1000 is unavailable; only supported months are shown.</p>}
+                  <div className="trend-chart" role="img" aria-label={currentFinance.history.length < 6 ? "Available income and spending trend" : "Six-month income and spending trend"}>
+                    {currentFinance.history.map((item) => (
                       <div className="trend-month" key={item.month}>
                         <div className="trend-bars">
                           <div
@@ -383,7 +395,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     ))}
                   </div>
                   <div className="trend-values">
-                    {finance.history.map((item) => (
+                    {currentFinance.history.map((item) => (
                       <span key={item.month}>
                         {new Date(`${item.month}-15T12:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
                         <b>Net {formatPence(item.netCashFlowPence)}</b>
@@ -400,11 +412,11 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     </div>
                     <span className="category-total">{formatPence(monthly.expensePence)}</span>
                   </div>
-                  {finance.categorySpending.length === 0 ? (
+                  {currentFinance.categorySpending.length === 0 ? (
                     <p className="empty-chart">No spending recorded for this month yet.</p>
                   ) : (
                     <ul className="category-list">
-                      {finance.categorySpending.map((item) => (
+                      {currentFinance.categorySpending.map((item) => (
                         <li key={item.categoryId ?? "uncategorised"}>
                           <div className="category-label">
                             <span><i style={{ backgroundColor: item.color }} />{item.categoryName}</span>
@@ -423,7 +435,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     </ul>
                   )}
                 </article>
-              </section>
+              </section>}
 
               <section className="panel transactions-panel" aria-labelledby="transactions-title">
                 <div className="transactions-heading">
@@ -433,13 +445,14 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   <div className="dashboard-actions">
                   <button className="lock-button" onClick={() => togglePanel("categories")} type="button"
                     aria-controls="categorisation-panel" aria-expanded={showSettings}>Manage categories and rules</button>
-                  <button className="add-transaction-button" disabled={busy} onClick={openForm} type="button">
+                  <button className="add-transaction-button" disabled={busy || !currentFinance} onClick={openForm} type="button">
                     <span aria-hidden="true">＋</span> Add transaction
                   </button>
                   </div>
                 </div>
 
                 {showForm && (
+                  <fieldset className="finance-record-controls" disabled={!currentFinance}>
                   <form className="transaction-form" onSubmit={createTransaction}>
                     <div className="form-title">
                       <h3>Add transaction</h3>
@@ -543,6 +556,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                       {busy ? "Saving…" : "Save transaction"}
                     </button>
                   </form>
+                  </fieldset>
                 )}
 
                 <div className="transaction-filters">
@@ -625,7 +639,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                           transaction={transaction}
                           categories={finance.categories}
                           pendingDelete={pendingDelete === transaction.id}
-                          busy={busy}
+                          busy={busy || !currentFinance}
                           onCategoryChange={(categoryId) => void updateCategory(transaction.id, categoryId)}
                           onUseRules={() => void clearManualCategory(transaction.id)}
                           onDelete={() => setPendingDelete(transaction.id)}
@@ -673,7 +687,9 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   Refunds offset spending and are included in net cash flow. Transfers are excluded from income, spending and net cash flow.
                 </p>
               </section>
-              {showSettings && <CategorisationSettings categories={finance.categories} onChanged={refresh} />}
+              {showSettings && <fieldset className="finance-record-controls" disabled={!currentFinance}>
+                <CategorisationSettings categories={finance.categories} onChanged={refresh} />
+              </fieldset>}
             </>
           )}
         </section>

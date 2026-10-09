@@ -105,10 +105,15 @@ detailed accounting, workspace security, export and restore contracts.
   explanations. Do not remove failure feedback or safety consent to reduce text.
 - Every visible control must work or be intentionally disabled with a clear state.
   Test save failure, cancel, confirmation, retries and refresh after mutations.
+- Key displayed finance results to their period/filter/page and refresh revision.
+  Never label cached totals or rows as a newly requested period. Hide stale data
+  during loading/failure, disable edits without current metadata, and clamp
+  pagination when deletion makes the current page unavailable.
 - Use Vitest/Testing Library for frontend tests, Rust tests for domain/persistence
   contracts and Playwright for desktop/mobile browser interactions.
 - Playwright uses a strict stateful fictional Tauri IPC harness. It verifies the
-  React UI, not native desktop encryption, credential access or private file I/O.
+  production React build with the configured CSP enforced as an HTTP header and a
+  frozen prototype, not native desktop encryption, credential access or file I/O.
   Cover those separately in Rust; do not claim browser mocks prove native behaviour.
 - Prefer getByRole/getByLabel and independent expected aggregates. Include refund/
   transfer exclusion, override recalculation, date limits, large totals above

@@ -297,6 +297,8 @@ h1 span {
 
 .text-button {
   display: block;
+  min-height: 44px;
+  min-width: 44px;
   margin: 17px auto 0;
   padding: 4px;
   border: 0;
