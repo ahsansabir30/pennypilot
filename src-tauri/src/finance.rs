@@ -6,6 +6,7 @@ use super::{AppState, WorkspaceError, WorkspaceResult};
 
 pub(super) mod budgets;
 pub(super) mod categorisation;
+pub(super) mod savings;
 
 const MAX_AMOUNT_PENCE: i64 = 99_999_999_999;
 const MAX_PAGE_SIZE: u32 = 100;
@@ -186,7 +187,8 @@ pub(super) fn initialize_schema(connection: &Connection) -> WorkspaceResult<()> 
 
 fn migrate_features(connection: &Connection) -> WorkspaceResult<()> {
     categorisation::migrate(connection)?;
-    budgets::migrate(connection)
+    budgets::migrate(connection)?;
+    savings::migrate(connection)
 }
 
 fn validate_iso_date(date: &str) -> WorkspaceResult<()> {
@@ -773,7 +775,7 @@ mod tests {
             })
             .expect("latest migration");
         assert_eq!(account_count, 1);
-        assert_eq!(migration_version, 4);
+        assert_eq!(migration_version, 5);
         initialize_schema(&migrated).expect("repeat idempotent migration");
         let account_count = migrated
             .query_row("SELECT count(*) FROM accounts", [], |row| {

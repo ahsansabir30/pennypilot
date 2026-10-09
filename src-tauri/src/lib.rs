@@ -56,6 +56,8 @@ enum WorkspaceError {
     RuleLimit,
     #[error("This source transaction already exists with different financial details. The existing record was preserved.")]
     SourceTransactionChanged,
+    #[error("Enter a goal name (up to 80 characters), positive GBP target, non-negative progress, valid optional calendar date and notes up to 1000 characters.")]
+    InvalidGoal,
 }
 
 type WorkspaceResult<T> = Result<T, WorkspaceError>;
@@ -547,7 +549,10 @@ pub fn run() {
             finance::budgets::list_budgets,
             finance::budgets::save_budget,
             finance::budgets::delete_budget,
-            finance::budgets::save_budget_preferences
+            finance::budgets::save_budget_preferences,
+            finance::savings::list_savings_goals,
+            finance::savings::save_savings_goal,
+            finance::savings::delete_savings_goal
         ])
         .run(tauri::generate_context!())
         .expect("failed to start PennyPilot");

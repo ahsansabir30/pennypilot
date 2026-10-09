@@ -15,6 +15,7 @@ import type {
 import "./Dashboard.css";
 import CategorisationSettings from "./CategorisationSettings";
 import Budgets from "./Budgets";
+import SavingsGoals from "./SavingsGoals";
 
 const PAGE_SIZE = 10;
 
@@ -41,6 +42,7 @@ function Dashboard({ onLock }: Props) {
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [showBudgets, setShowBudgets] = useState(false);
+  const [showGoals, setShowGoals] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [financeError, setFinanceError] = useState("");
   const [transactionError, setTransactionError] = useState("");
@@ -302,8 +304,11 @@ function Dashboard({ onLock }: Props) {
               <div className="finance-tools">
                 <button className="lock-button" type="button" aria-expanded={showBudgets}
                   onClick={() => setShowBudgets((value) => !value)}>Monthly budgets and insights</button>
+                <button className="lock-button" type="button" aria-expanded={showGoals}
+                  onClick={() => setShowGoals((value) => !value)}>Manage savings goals</button>
               </div>
               {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey} />}
+              {showGoals && <SavingsGoals />}
 
               <section className="insight-grid">
                 <article className="panel trend-panel">

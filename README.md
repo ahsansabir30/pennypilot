@@ -45,7 +45,13 @@ Budget used is recorded expenses minus refunds in that transaction's current cat
 
 Past months use their full calendar period (including leap days); the current month stops at the local as-of date; future months have no elapsed usage. Same-elapsed-days comparison for partial months is the default, capped at the previous month's last day. Users can choose full-previous-month comparison, explicitly labelled as potentially unequal periods; this preference persists in the encrypted workspace. Comparisons show recorded amounts, dates and record counts, not claims of complete banking history. Missing category records yield no inferred comparison. Net cash flow is not an account balance, and no forecasts are presented.
 
-CSV import, custom accounts, recurring payments, savings goals, and backup/export remain planned work.
+## Savings goals
+
+**Manage savings goals** stores a name, positive GBP target, explicitly entered non-negative GBP progress, optional validated calendar target date and editable notes. All amounts are integer pence in the encrypted workspace. Progress can be zero or exceed the target; overfunding is retained and displayed. Remaining is `max(target - progress, 0)`. The percentage uses the entered progress divided by the target; only the visual progress bar caps at 100%.
+
+The inputs are shown with each calculation. Goal progress is never inferred from imported income, transaction history, net cash flow or an assumed bank balance. Goals do not move or reserve funds. Target dates are user preferences, not estimated completion dates; this release intentionally makes no projected outcomes. Edits and confirmed deletions do not change transactions.
+
+CSV import, custom accounts, recurring payments, and backup/export remain planned work.
 
 ## Development
 

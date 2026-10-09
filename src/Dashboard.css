@@ -129,6 +129,17 @@
 .budget-exceeded { color: #943832; font-weight: 600; }
 .management-preference { display: grid; gap: 8px; max-width: 420px; margin-top: 14px; }
 .management-preference select { width: 100%; min-width: 0; }
+.goal-notes { white-space: pre-wrap; }
+.goal-notes-field { grid-column: 1 / -1; }
+.goal-notes-field textarea {
+  width: 100%;
+  min-height: 80px;
+  padding: 10px;
+  border: 1px solid #dbe3d9;
+  border-radius: 8px;
+  font: inherit;
+  resize: vertical;
+}
 
 .dashboard-actions {
   display: flex;
