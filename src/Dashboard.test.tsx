@@ -88,6 +88,9 @@ const transactionPage: TransactionPage = {
       transactionDate: "2026-10-08",
       description: "Weekly food shop",
       merchant: "North Market",
+      merchantNormalized: "north market",
+      categorySource: "manual",
+      categoryExplanation: "Manual choice. Rules cannot overwrite this category.",
     },
   ],
   total: 1,
@@ -137,6 +140,7 @@ describe("financial dashboard", () => {
         input: {
           accountId: 1,
           categoryId: 1,
+          manualCategory: true,
           amountPence: 1234,
           kind: "expense",
           transactionDate: "2026-10-08",
@@ -165,5 +169,75 @@ describe("financial dashboard", () => {
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("delete_transaction", { transactionId: 8 }),
     );
+  });
+
+  it.each([
+    { choice: "", manual: false, label: "automatic categorisation" },
+    { choice: "uncategorised", manual: true, label: "explicit manual Uncategorised" },
+  ])("distinguishes $label from the other choice", async ({ choice, manual }) => {
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    fireEvent.click(screen.getByRole("button", { name: /Add transaction/ }));
+    fireEvent.change(screen.getByLabelText("Category"), { target: { value: choice } });
+    fireEvent.change(screen.getByLabelText("Amount (GBP)"), { target: { value: "25.00" } });
+    fireEvent.change(screen.getByLabelText("Description"), { target: { value: "Fictional food shop" } });
+    fireEvent.change(screen.getByLabelText(/Merchant/), { target: { value: "NORTH*MARKET" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save transaction" }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("create_transaction", {
+      input: expect.objectContaining({ categoryId: null, manualCategory: manual, merchant: "NORTH*MARKET" }),
+    }));
+  });
+
+  it("explains decisions and only clears a manual override through Use rules", async () => {
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    expect(screen.getByText("Manual choice. Rules cannot overwrite this category.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Use rules for North Market" }));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("reset_transaction_category", { transactionId: 8 }));
+  });
+
+  it.each([
+    { categoryId: 1, categoryName: "Groceries", choice: "1" },
+    { categoryId: null, categoryName: null, choice: "" },
+  ])("can make an explicit decision identical to the automatic category $categoryId", async ({ categoryId, categoryName, choice }) => {
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_finance_data") return financeData;
+      if (command === "list_transactions") return {
+        ...transactionPage, transactions: [{ ...transactionPage.transactions[0], categoryId, categoryName,
+          categorySource: categoryId === null ? "uncategorised" : "rule" }],
+      };
+      return undefined;
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    const select = await screen.findByRole("combobox", { name: "Category for North Market" });
+    expect(select).toHaveProperty("value", "automatic");
+    fireEvent.change(select, { target: { value: choice } });
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("update_transaction_category", {
+      transactionId: 8, categoryId,
+    }));
+  });
+
+  it("shows conflicts and refreshes the category breakdown after reclassification", async () => {
+    let reclassified = false;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_category_rules") return [];
+      if (command === "reclassify_transactions") { reclassified = true; return 1; }
+      if (command === "list_finance_data") return {
+        ...financeData, categorySpending: [{ ...financeData.categorySpending[0], categoryName: reclassified ? "Dining" : "Uncategorised" }],
+      };
+      if (command === "list_transactions") return {
+        ...transactionPage, transactions: [{ ...transactionPage.transactions[0], categoryId: null, categoryName: null, categorySource: "uncategorised",
+          categoryExplanation: "Conflict: equal highest priority targets different categories. No category assigned." }],
+      };
+      return undefined;
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    expect(await screen.findByText(/Conflict: equal highest priority/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Use rules for North Market" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Manage categories and rules" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Reclassify automatic transactions" })).toHaveProperty("disabled", false));
+    fireEvent.click(await screen.findByRole("button", { name: "Reclassify automatic transactions" }));
+    await waitFor(() => expect(screen.getByText("Dining")).toBeTruthy());
+    expect(screen.getByText("1 automatic transaction reclassified. Manual choices preserved.")).toBeTruthy();
   });
 });

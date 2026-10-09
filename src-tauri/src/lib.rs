@@ -46,8 +46,16 @@ enum WorkspaceError {
     StateUnavailable,
     #[error("The transaction data is invalid.")]
     InvalidFinancialInput,
-    #[error("The requested transaction does not exist.")]
+    #[error("The requested record does not exist.")]
     RecordNotFound,
+    #[error("This category is used by transactions or rules. Reassign them before deleting it.")]
+    CategoryInUse,
+    #[error("A category with this name and type already exists.")]
+    CategoryNameExists,
+    #[error("You can create up to 200 categorisation rules.")]
+    RuleLimit,
+    #[error("This source transaction already exists with different financial details. The existing record was preserved.")]
+    SourceTransactionChanged,
 }
 
 type WorkspaceResult<T> = Result<T, WorkspaceError>;
@@ -528,7 +536,14 @@ pub fn run() {
             finance::list_transactions,
             finance::create_transaction,
             finance::update_transaction_category,
-            finance::delete_transaction
+            finance::delete_transaction,
+            finance::categorisation::list_category_rules,
+            finance::categorisation::save_category_rule,
+            finance::categorisation::delete_category_rule,
+            finance::categorisation::save_category,
+            finance::categorisation::delete_category,
+            finance::categorisation::reclassify_transactions,
+            finance::categorisation::reset_transaction_category
         ])
         .run(tauri::generate_context!())
         .expect("failed to start PennyPilot");

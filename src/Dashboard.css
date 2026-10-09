@@ -6,6 +6,81 @@
   padding-left: clamp(20px, 5vw, 76px);
 }
 
+.categorisation-panel {
+  margin-top: 24px;
+  padding: 24px;
+}
+
+.categorisation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.settings-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding: 0;
+  list-style: none;
+}
+
+.settings-list li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 0;
+  border-bottom: 1px solid #e1e7df;
+  font-size: 12px;
+}
+
+.settings-list small,
+.category-explanation {
+  display: block;
+  max-width: 300px;
+  margin-top: 5px;
+  color: #66746b;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.settings-list li > span {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.categorisation-panel button,
+.use-rules-button {
+  min-height: 36px;
+  margin: 4px;
+  padding: 6px 10px;
+  border: 1px solid #e1e7df;
+  border-radius: 8px;
+  background: #fff;
+  color: #304438;
+  cursor: pointer;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.transaction-form-grid .enabled-rule {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.transaction-form .enabled-rule input {
+  width: auto;
+  min-height: auto;
+}
+
+@media (max-width: 720px) {
+  .categorisation-grid { grid-template-columns: 1fr; }
+  .transactions-heading .dashboard-actions { flex-wrap: wrap; }
+}
+
 .dashboard-topbar {
   min-height: 42px;
 }

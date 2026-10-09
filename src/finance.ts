@@ -46,6 +46,18 @@ export type Transaction = {
   transactionDate: string;
   description: string;
   merchant: string | null;
+  merchantNormalized: string | null;
+  categorySource: "manual" | "rule" | "uncategorised" | "transfer";
+  categoryExplanation: string;
+};
+
+export type CategoryRule = {
+  id: number;
+  pattern: string;
+  matchType: "exact" | "contains";
+  categoryId: number;
+  priority: number;
+  enabled: boolean;
 };
 
 export type TransactionPage = {

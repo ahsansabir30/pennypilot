@@ -4,6 +4,8 @@ use tauri::State;
 
 use super::{AppState, WorkspaceError, WorkspaceResult};
 
+pub(super) mod categorisation;
+
 const MAX_AMOUNT_PENCE: i64 = 99_999_999_999;
 const MAX_PAGE_SIZE: u32 = 100;
 const MAX_PAGE: u32 = 100_000;
@@ -28,6 +30,10 @@ pub(super) struct Category {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(super) struct TransactionInput {
+    #[serde(default)]
+    source_id: Option<String>,
+    #[serde(default)]
+    manual_category: bool,
     account_id: i64,
     category_id: Option<i64>,
     amount_pence: i64,
@@ -61,6 +67,9 @@ struct Transaction {
     transaction_date: String,
     description: String,
     merchant: Option<String>,
+    merchant_normalized: Option<String>,
+    category_source: String,
+    category_explanation: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -102,6 +111,16 @@ pub(super) struct DashboardData {
 }
 
 pub(super) fn initialize_schema(connection: &Connection) -> WorkspaceResult<()> {
+    let version = connection
+        .query_row(
+            "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
+            [],
+            |row| row.get::<_, i64>(0),
+        )
+        .map_err(|_| WorkspaceError::Storage)?;
+    if version >= 2 {
+        return categorisation::migrate(connection);
+    }
     connection
         .execute_batch(
             "BEGIN IMMEDIATE;
@@ -160,7 +179,8 @@ pub(super) fn initialize_schema(connection: &Connection) -> WorkspaceResult<()> 
              INSERT OR IGNORE INTO schema_migrations (version) VALUES (2);
              COMMIT;",
         )
-        .map_err(|_| WorkspaceError::Storage)
+        .map_err(|_| WorkspaceError::Storage)?;
+    categorisation::migrate(connection)
 }
 
 fn validate_iso_date(date: &str) -> WorkspaceResult<()> {
@@ -250,6 +270,10 @@ fn validate_transaction(connection: &Connection, input: &TransactionInput) -> Wo
             "income" | "expense" | "refund" | "transfer"
         )
         || input
+            .source_id
+            .as_ref()
+            .is_some_and(|id| id.trim().is_empty() || id.chars().count() > 200)
+        || input
             .merchant
             .as_ref()
             .is_some_and(|merchant| merchant.chars().count() > 120)
@@ -330,32 +354,75 @@ pub(super) fn create_transaction(
     input: TransactionInput,
 ) -> Result<i64, String> {
     with_connection(&state, |connection| {
-        validate_transaction(connection, &input)?;
-        connection
-            .execute(
-                "INSERT INTO transactions
-                    (account_id, category_id, amount_pence, kind, transaction_date,
-                     description, merchant, merchant_normalized)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-                params![
-                    input.account_id,
-                    input.category_id,
-                    input.amount_pence,
-                    input.kind,
-                    input.transaction_date,
-                    input.description.trim(),
-                    input
-                        .merchant
-                        .as_deref()
-                        .map(str::trim)
-                        .filter(|value| !value.is_empty()),
-                    normalize_merchant(input.merchant.as_deref())
-                ],
-            )
-            .map_err(|_| WorkspaceError::Storage)?;
-        Ok(connection.last_insert_rowid())
+        create_transaction_from(connection, &input)
     })
     .map_err(|error| error.to_string())
+}
+
+fn create_transaction_from(
+    connection: &Connection,
+    input: &TransactionInput,
+) -> WorkspaceResult<i64> {
+    validate_transaction(connection, input)?;
+    if let Some(source_id) = &input.source_id {
+        if let Some((id, amount, kind, date)) = connection
+            .query_row(
+                "SELECT id, amount_pence, kind, transaction_date FROM transactions
+                 WHERE account_id = ?1 AND source_id = ?2",
+                params![input.account_id, source_id.trim()],
+                |row| {
+                    Ok((
+                        row.get::<_, i64>(0)?,
+                        row.get::<_, i64>(1)?,
+                        row.get::<_, String>(2)?,
+                        row.get::<_, String>(3)?,
+                    ))
+                },
+            )
+            .optional()
+            .map_err(|_| WorkspaceError::Storage)?
+        {
+            if amount != input.amount_pence || kind != input.kind || date != input.transaction_date
+            {
+                return Err(WorkspaceError::SourceTransactionChanged);
+            }
+            return Ok(id);
+        }
+    }
+    let decision = if input.kind == "transfer" {
+        categorisation::classify(connection, &input.kind, input.merchant.as_deref())?
+    } else if input.category_id.is_some() || input.manual_category {
+        categorisation::Decision::manual(input.category_id)
+    } else {
+        categorisation::classify(connection, &input.kind, input.merchant.as_deref())?
+    };
+    connection
+        .execute(
+            "INSERT INTO transactions
+                    (account_id, category_id, amount_pence, kind, transaction_date,
+                     description, merchant, merchant_normalized, source_id,
+                     category_source, category_explanation)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+            params![
+                input.account_id,
+                decision.category_id,
+                input.amount_pence,
+                input.kind,
+                input.transaction_date,
+                input.description.trim(),
+                input
+                    .merchant
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|value| !value.is_empty()),
+                normalize_merchant(input.merchant.as_deref()),
+                input.source_id.as_deref().map(str::trim),
+                decision.source,
+                decision.explanation
+            ],
+        )
+        .map_err(|_| WorkspaceError::Storage)?;
+    Ok(connection.last_insert_rowid())
 }
 
 #[tauri::command]
@@ -365,37 +432,57 @@ pub(super) fn update_transaction_category(
     category_id: Option<i64>,
 ) -> Result<(), String> {
     with_connection(&state, |connection| {
-        let mut input = connection
-            .query_row(
-                "SELECT account_id, amount_pence, kind, transaction_date, description, merchant
-                 FROM transactions WHERE id = ?1",
-                [transaction_id],
-                |row| {
-                    Ok(TransactionInput {
-                        account_id: row.get(0)?,
-                        category_id,
-                        amount_pence: row.get(1)?,
-                        kind: row.get(2)?,
-                        transaction_date: row.get(3)?,
-                        description: row.get(4)?,
-                        merchant: row.get(5)?,
-                    })
-                },
-            )
-            .optional()
-            .map_err(|_| WorkspaceError::Storage)?
-            .ok_or(WorkspaceError::RecordNotFound)?;
-        input.category_id = category_id;
-        validate_transaction(connection, &input)?;
-        connection
-            .execute(
-                "UPDATE transactions SET category_id = ?1 WHERE id = ?2",
-                params![category_id, transaction_id],
-            )
-            .map_err(|_| WorkspaceError::Storage)?;
-        Ok(())
+        update_category_from(connection, transaction_id, category_id)
     })
     .map_err(|error| error.to_string())
+}
+
+fn update_category_from(
+    connection: &Connection,
+    transaction_id: i64,
+    category_id: Option<i64>,
+) -> WorkspaceResult<()> {
+    let input = connection
+        .query_row(
+            "SELECT account_id, amount_pence, kind, transaction_date, description, merchant
+                 FROM transactions WHERE id = ?1",
+            [transaction_id],
+            |row| {
+                Ok(TransactionInput {
+                    source_id: None,
+                    manual_category: true,
+                    account_id: row.get(0)?,
+                    category_id,
+                    amount_pence: row.get(1)?,
+                    kind: row.get(2)?,
+                    transaction_date: row.get(3)?,
+                    description: row.get(4)?,
+                    merchant: row.get(5)?,
+                })
+            },
+        )
+        .optional()
+        .map_err(|_| WorkspaceError::Storage)?
+        .ok_or(WorkspaceError::RecordNotFound)?;
+    validate_transaction(connection, &input)?;
+    let decision = if input.kind == "transfer" {
+        categorisation::classify(connection, &input.kind, input.merchant.as_deref())?
+    } else {
+        categorisation::Decision::manual(category_id)
+    };
+    connection
+        .execute(
+            "UPDATE transactions SET category_id = ?1, category_source = ?2,
+                 category_explanation = ?3 WHERE id = ?4",
+            params![
+                decision.category_id,
+                decision.source,
+                decision.explanation,
+                transaction_id
+            ],
+        )
+        .map_err(|_| WorkspaceError::Storage)?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -478,7 +565,8 @@ fn list_transactions_from(
     let mut statement = connection
         .prepare(&format!(
             "SELECT t.id, t.account_id, t.category_id, c.name, t.amount_pence,
-                    t.kind, t.transaction_date, t.description, t.merchant
+                    t.kind, t.transaction_date, t.description, t.merchant,
+                    t.merchant_normalized, t.category_source, t.category_explanation
              FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
              {where_clause}
              ORDER BY {ordering} LIMIT ?5 OFFSET ?6"
@@ -505,6 +593,9 @@ fn list_transactions_from(
                     transaction_date: row.get(6)?,
                     description: row.get(7)?,
                     merchant: row.get(8)?,
+                    merchant_normalized: row.get(9)?,
+                    category_source: row.get(10)?,
+                    category_explanation: row.get(11)?,
                 })
             },
         )
@@ -625,7 +716,7 @@ fn dashboard_data(connection: &Connection, month: &str) -> WorkspaceResult<Dashb
 mod tests {
     use super::*;
 
-    fn finance_db() -> Connection {
+    pub(super) fn finance_db() -> Connection {
         let connection = Connection::open_in_memory().expect("open test database");
         connection
             .execute_batch(
@@ -676,7 +767,7 @@ mod tests {
             })
             .expect("latest migration");
         assert_eq!(account_count, 1);
-        assert_eq!(migration_version, 2);
+        assert_eq!(migration_version, 3);
         initialize_schema(&migrated).expect("repeat idempotent migration");
         let account_count = migrated
             .query_row("SELECT count(*) FROM accounts", [], |row| {
@@ -869,6 +960,8 @@ mod tests {
             )
             .expect("income category");
         let valid_expense = TransactionInput {
+            source_id: None,
+            manual_category: false,
             account_id,
             category_id: Some(groceries_id),
             amount_pence: 1234,

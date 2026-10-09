@@ -13,6 +13,7 @@ import type {
   TransactionPage,
 } from "./finance";
 import "./Dashboard.css";
+import CategorisationSettings from "./CategorisationSettings";
 
 const PAGE_SIZE = 10;
 
@@ -37,6 +38,7 @@ function Dashboard({ onLock }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [financeError, setFinanceError] = useState("");
   const [transactionError, setTransactionError] = useState("");
@@ -142,17 +144,14 @@ function Dashboard({ onLock }: Props) {
       setFormMessage("Enter an amount in pounds with up to two decimal places.");
       return;
     }
-    if (form.kind !== "transfer" && !form.categoryId) {
-      setFormMessage("Choose a category for this transaction.");
-      return;
-    }
-
     setBusy(true);
     try {
       await invoke("create_transaction", {
         input: {
           accountId: Number(form.accountId),
-          categoryId: form.kind === "transfer" ? null : Number(form.categoryId),
+          categoryId: form.kind === "transfer" || !form.categoryId || form.categoryId === "uncategorised"
+            ? null : Number(form.categoryId),
+          manualCategory: form.kind !== "transfer" && form.categoryId !== "",
           amountPence,
           kind: form.kind,
           transactionDate: form.transactionDate,
@@ -184,6 +183,16 @@ function Dashboard({ onLock }: Props) {
     }
   }
 
+  async function clearManualCategory(transactionId: number) {
+    setTransactionError("");
+    try {
+      await invoke("reset_transaction_category", { transactionId });
+      refresh();
+    } catch (error) {
+      setTransactionError(errorMessage(error));
+    }
+  }
+
   async function deleteTransaction(transactionId: number) {
     setTransactionError("");
     try {
@@ -196,16 +205,10 @@ function Dashboard({ onLock }: Props) {
   }
 
   function changeKind(kind: TransactionKind) {
-    const nextCategory =
-      kind === "income"
-        ? finance?.categories.find((category) => category.categoryType === "income")
-        : kind === "transfer"
-          ? undefined
-          : finance?.categories.find((category) => category.categoryType === "expense");
     setForm((current) => ({
       ...current,
       kind,
-      categoryId: nextCategory ? String(nextCategory.id) : "",
+      categoryId: "",
     }));
   }
 
@@ -374,9 +377,13 @@ function Dashboard({ onLock }: Props) {
                     <h2 id="transactions-title">Transactions</h2>
                     <p>Search records and correct a category at any time.</p>
                   </div>
+                  <div className="dashboard-actions">
+                  <button className="lock-button" onClick={() => setShowSettings((value) => !value)} type="button"
+                    aria-expanded={showSettings}>Manage categories and rules</button>
                   <button className="add-transaction-button" onClick={openForm} type="button">
                     <span aria-hidden="true">＋</span> Add transaction
                   </button>
+                  </div>
                 </div>
 
                 {showForm && (
@@ -440,16 +447,18 @@ function Dashboard({ onLock }: Props) {
                       <label>
                         Category
                         <select
+                          aria-label="Category"
                           disabled={form.kind === "transfer"}
                           value={form.categoryId}
                           onChange={(event) => setForm({ ...form, categoryId: event.currentTarget.value })}
-                          required={form.kind !== "transfer"}
                         >
-                          <option value="">Choose a category</option>
+                          <option value="">Automatic (use merchant rules)</option>
+                          <option value="uncategorised">Uncategorised (manual choice)</option>
                           {filteredCategories.map((category) => (
                             <option key={category.id} value={category.id}>{category.name}</option>
                           ))}
                         </select>
+                        <span className="policy-note">Explicit choices are protected from rule changes.</span>
                       </label>
                       <label>
                         Description
@@ -560,6 +569,7 @@ function Dashboard({ onLock }: Props) {
                           categories={finance.categories}
                           pendingDelete={pendingDelete === transaction.id}
                           onCategoryChange={(categoryId) => void updateCategory(transaction.id, categoryId)}
+                          onUseRules={() => void clearManualCategory(transaction.id)}
                           onDelete={() => setPendingDelete(transaction.id)}
                           onCancelDelete={() => setPendingDelete(null)}
                           onConfirmDelete={() => void deleteTransaction(transaction.id)}
@@ -601,6 +611,7 @@ function Dashboard({ onLock }: Props) {
                   Refunds offset spending and are included in net cash flow. Transfers are excluded from income, spending and net cash flow.
                 </p>
               </section>
+              {showSettings && <CategorisationSettings categories={finance.categories} onChanged={refresh} />}
             </>
           )}
         </section>
@@ -644,6 +655,7 @@ function TransactionRow({
   categories,
   pendingDelete,
   onCategoryChange,
+  onUseRules,
   onDelete,
   onCancelDelete,
   onConfirmDelete,
@@ -652,6 +664,7 @@ function TransactionRow({
   categories: FinanceData["categories"];
   pendingDelete: boolean;
   onCategoryChange: (categoryId: string) => void;
+  onUseRules: () => void;
   onDelete: () => void;
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
@@ -677,17 +690,26 @@ function TransactionRow({
         {transaction.kind === "transfer" ? (
           <span className="transfer-category">Excluded</span>
         ) : (
+          <>
           <select
             aria-label={`Category for ${displayName}`}
             className="category-select"
-            value={transaction.categoryId ?? ""}
+            value={transaction.categorySource === "manual" ? transaction.categoryId ?? "" : "automatic"}
             onChange={(event) => onCategoryChange(event.currentTarget.value)}
           >
+            {transaction.categorySource !== "manual" && <option value="automatic" disabled>
+              {transaction.categoryName ?? "Uncategorised"} (automatic)
+            </option>}
             <option value="">Uncategorised</option>
             {eligibleCategories.map((category) => (
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
+          <small className="category-explanation">{transaction.categoryExplanation}</small>
+          {transaction.categorySource === "manual" && <button type="button"
+            className="use-rules-button" onClick={onUseRules}
+            aria-label={`Use rules for ${displayName}`}>Use rules (clear manual choice)</button>}
+          </>
         )}
       </td>
       <td className={`amount-column transaction-amount ${transaction.kind}`}>

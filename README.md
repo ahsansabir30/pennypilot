@@ -15,6 +15,18 @@ The recovery key is available only through the OS credential store on the device
 
 The unlocked workspace now includes a financial overview backed by encrypted SQLite records. New workspaces receive a GBP main account and starter income/expense categories; they do not receive fictional financial transactions or hardcoded dashboard totals. Transactions are entered manually in this increment.
 
+## Deterministic categorisation
+
+- Merchant normalization lowercases Unicode letters, replaces punctuation/whitespace runs with a single space, and trims the result. Digits and accents are retained; original merchant text is kept. It does not guess away bank prefixes, branch numbers, or references.
+- Manage categories and rules from the dashboard. Category names and colours are editable; income/expense type is fixed once created. Referenced categories cannot be deleted. Starter categories/rules are seeded once, so edits and deletions survive reopening.
+- Rules use either an exact normalized merchant name or a whole normalized phrase anywhere in that name, not regexes or wildcard matching. Description text is not used as a merchant substitute. Income rules only apply to income; expense rules also apply to refunds; transfers remain excluded.
+- Higher priority wins (0–1000, up to 200 rules). Same-category ties agree. Highest-priority ties targeting different categories remain **Uncategorised**. Each automatic transaction stores an explanation listing matching patterns, category names and priorities, including lower-priority overlaps. Explanations are snapshots from the last classification.
+- Default rules cover fictional fixture merchants such as North Market, Coffee Shop, Streaming Service and Salary Payment. They are editable/deletable examples, not claims about real merchants. No sample transactions or financial totals are inserted.
+- New transactions default to automatic categorisation, falling back to Uncategorised when no compatible rule matches. Selecting a category or explicitly selecting Uncategorised stores a **manual choice**. Manual corrections, including clearing a category, cannot be overwritten by rules. Existing pre-feature records conservatively retain their choices as manual.
+- Saving/deleting a rule affects subsequent transactions only. **Reclassify automatic transactions** explicitly applies current rules to existing non-manual records and refreshes dashboard category totals. **Use rules (clear manual choice)** is the only action that clears an individual manual override.
+- The transaction ingestion command accepts an optional stable `sourceId`, unique within an account. Re-ingesting the same source returns the existing transaction without altering its category or override; a changed date, kind or amount is rejected explicitly. Without a source ID, creation is a distinct manual record. CSV import is not included yet; its future importer must pass stable source IDs through this same ingestion path.
+- All categorisation runs locally in Rust against the encrypted database. No LLM, external service or additional server is used.
+
 ## Financial data and accounting
 
 - Accounts and categories are stored in the encrypted workspace. Accounts use GBP.
