@@ -28,7 +28,11 @@ input {
 }
 
 button:focus-visible,
-input:focus-visible {
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+a:focus-visible,
+summary:focus-visible {
   outline: 3px solid #6b9c7d;
   outline-offset: 3px;
 }

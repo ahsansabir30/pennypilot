@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, poundsToPence } from "./finance";
+import type { SavingsGoal } from "./finance";
 
-type Goal = { id: number; name: string; targetPence: number; progressPence: number; targetDate: string | null; notes: string };
 const empty = { id: null as number | null, name: "", target: "", progress: "0.00", targetDate: "", notes: "" };
 
-export default function SavingsGoals() {
-  const [goals, setGoals] = useState<Goal[]>([]);
+export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: () => void; headingRef?: Ref<HTMLHeadingElement> }) {
+  const [goals, setGoals] = useState<SavingsGoal[]>([]);
   const [form, setForm] = useState(empty);
   const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -18,7 +18,7 @@ export default function SavingsGoals() {
 
   useEffect(() => {
     let active = true;
-    invoke<Goal[]>("list_savings_goals")
+    invoke<SavingsGoal[]>("list_savings_goals")
       .then((result) => { if (active) { setGoals(result); setError(""); } })
       .catch((error: unknown) => { if (active) setError(financeError(error)); })
       .finally(() => { if (active) setLoading(false); });
@@ -30,6 +30,7 @@ export default function SavingsGoals() {
     try {
       await invoke(command, args);
       setForm(empty); setDeleting(null); setMessage(success); setRevision((value) => value + 1);
+      onChanged?.();
     } catch (error) { setError(financeError(error)); }
     finally { setBusy(false); }
   }
@@ -48,7 +49,7 @@ export default function SavingsGoals() {
   }
 
   return <section className="panel finance-management" aria-labelledby="savings-title">
-    <h2 id="savings-title">Savings goals</h2>
+    <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Savings goals</h2>
     <p className="policy-note">Progress is explicitly entered by you. It is not calculated from income, net cash flow or incomplete transaction history.
       Goals do not reserve funds or confirm an actual bank balance. No projected completion outcome is inferred.</p>
     {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}

@@ -37,6 +37,11 @@ describe("workspace setup and access", () => {
     invokeMock.mockImplementation(async (command) => {
       if (command === "workspace_status") return "locked";
       if (command === "list_finance_data") return emptyFinanceData;
+      if (command === "list_budgets") return {
+        month: "2026-10", asOf: "2026-10-09", periodEnd: null, previousMonth: "2026-09",
+        previousEnd: null, comparisonMode: "same_day", rows: [],
+      };
+      if (command === "list_savings_goals") return [];
       if (command === "list_transactions") return emptyTransactions;
       return undefined;
     });

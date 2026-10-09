@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
@@ -17,6 +17,7 @@ import CategorisationSettings from "./CategorisationSettings";
 import Budgets from "./Budgets";
 import SavingsGoals from "./SavingsGoals";
 import PrivateData from "./PrivateData";
+import FinancialHighlights from "./FinancialHighlights";
 
 const PAGE_SIZE = 10;
 
@@ -38,6 +39,7 @@ function Dashboard({ onLock }: Props) {
   const [sort, setSort] = useState("date_desc");
   const [page, setPage] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [planningRevision, setPlanningRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
@@ -45,6 +47,8 @@ function Dashboard({ onLock }: Props) {
   const [showBudgets, setShowBudgets] = useState(false);
   const [showGoals, setShowGoals] = useState(false);
   const [showPrivateData, setShowPrivateData] = useState(false);
+  const budgetHeadingRef = useRef<HTMLHeadingElement>(null);
+  const goalHeadingRef = useRef<HTMLHeadingElement>(null);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [financeError, setFinanceError] = useState("");
   const [transactionError, setTransactionError] = useState("");
@@ -58,6 +62,9 @@ function Dashboard({ onLock }: Props) {
     description: "",
     merchant: "",
   });
+
+  useEffect(() => { if (showBudgets) budgetHeadingRef.current?.focus(); }, [showBudgets]);
+  useEffect(() => { if (showGoals) goalHeadingRef.current?.focus(); }, [showGoals]);
 
   useEffect(() => {
     let active = true;
@@ -262,9 +269,9 @@ function Dashboard({ onLock }: Props) {
         <section className="dashboard-content" aria-labelledby="dashboard-title">
           <div className="dashboard-heading">
             <div>
-              <span className="eyebrow">Your money, in focus</span>
+              <span className="eyebrow">Your month, at a glance</span>
               <h1 id="dashboard-title">Financial overview</h1>
-              <p>Figures come from transactions saved in your encrypted workspace.</p>
+              <p>Your recorded activity. Private, on this device.</p>
             </div>
             <label className="month-picker">
               <span>Month</span>
@@ -310,16 +317,20 @@ function Dashboard({ onLock }: Props) {
                 />
               </section>
               <p className="policy-note">Net cash flow is movement in recorded transactions, not an account balance.</p>
-              <div className="finance-tools">
+              <nav className="finance-tools" aria-label="Workspace tools">
+                <a className="lock-button" href="#transactions-title">Transactions</a>
                 <button className="lock-button" type="button" aria-expanded={showBudgets}
-                  onClick={() => setShowBudgets((value) => !value)}>Monthly budgets and insights</button>
+                  aria-label="Monthly budgets and insights" onClick={() => setShowBudgets((value) => !value)}>Budgets &amp; insights</button>
                 <button className="lock-button" type="button" aria-expanded={showGoals}
-                  onClick={() => setShowGoals((value) => !value)}>Manage savings goals</button>
+                  aria-label="Manage savings goals" onClick={() => setShowGoals((value) => !value)}>Savings goals</button>
                 <button className="lock-button" type="button" aria-expanded={showPrivateData}
-                  onClick={() => setShowPrivateData((value) => !value)}>Private export and backup</button>
-              </div>
-              {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey} />}
-              {showGoals && <SavingsGoals />}
+                  aria-label="Private export and backup" onClick={() => setShowPrivateData((value) => !value)}>Export &amp; backup</button>
+              </nav>
+              <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision}
+                onBudgets={() => setShowBudgets(true)} onGoals={() => setShowGoals(true)} />
+              {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey}
+                headingRef={budgetHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
+              {showGoals && <SavingsGoals headingRef={goalHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
               {showPrivateData && <PrivateData key={month} month={month} accounts={finance.accounts} categories={finance.categories}
                 search={search} kind={kindFilter} categoryId={categoryFilter} onRestored={restored} />}
 
@@ -588,6 +599,9 @@ function Dashboard({ onLock }: Props) {
                       </tr>
                     </thead>
                     <tbody>
+                      {!transactions && !transactionError && <tr><td className="empty-transactions" colSpan={6}>
+                        <span role="status">Loading transactions...</span>
+                      </td></tr>}
                       {transactions?.transactions.map((transaction) => (
                         <TransactionRow
                           key={transaction.id}
@@ -607,6 +621,8 @@ function Dashboard({ onLock }: Props) {
                             {search || kindFilter || categoryFilter
                               ? "No transactions match these filters."
                               : "No transactions for this month yet. Add one to see your real financial picture."}
+                            {(search || kindFilter || categoryFilter) && <button className="lock-button clear-filters" type="button"
+                              onClick={() => { setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); }}>Clear filters</button>}
                           </td>
                         </tr>
                       )}
@@ -616,13 +632,15 @@ function Dashboard({ onLock }: Props) {
 
                 <div className="pagination">
                   <span>
-                    {transactions?.total === 0
+                    {!transactions
+                      ? transactionError ? "Records unavailable" : "Loading records..."
+                      : transactions.total === 0
                       ? "No records"
                       : `${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, transactions?.total ?? 0)} of ${transactions?.total ?? 0}`}
                   </span>
                   <div>
                     <button
-                      disabled={page === 0}
+                      disabled={!transactions || page === 0}
                       onClick={() => setPage((value) => Math.max(0, value - 1))}
                       type="button"
                     >Previous</button>
@@ -707,12 +725,17 @@ function TransactionRow({
   return (
     <tr>
       <td className="transaction-date">{transaction.transactionDate}</td>
-      <td>
-        <strong className="transaction-merchant">{displayName}</strong>
-        {transaction.merchant && <span className="transaction-description">{transaction.description}</span>}
+      <td className="transaction-identity">
+        <div className="merchant-label">
+          <span className="merchant-avatar" aria-hidden="true">{Array.from(displayName.trim())[0]?.toLocaleUpperCase("en-GB") ?? "T"}
+            <i className="merchant-category-dot" style={{ backgroundColor: categories.find((category) => category.id === transaction.categoryId)?.color ?? "#7c8880" }} />
+          </span>
+          <div><strong className="transaction-merchant">{displayName}</strong>
+            {transaction.merchant && <span className="transaction-description">{transaction.description}</span>}</div>
+        </div>
       </td>
       <td><span className={`kind-badge ${transaction.kind}`}>{transaction.kind}</span></td>
-      <td>
+      <td className="transaction-category">
         {transaction.kind === "transfer" ? (
           <span className="transfer-category">Excluded</span>
         ) : (
@@ -731,7 +754,9 @@ function TransactionRow({
               <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
-          <small className="category-explanation">{transaction.categoryExplanation}</small>
+          {transaction.categorySource === "manual"
+            ? <details className="category-details"><summary>Category details</summary><small className="category-explanation">{transaction.categoryExplanation}</small></details>
+            : <small className="category-explanation">{transaction.categoryExplanation}</small>}
           {transaction.categorySource === "manual" && <button type="button"
             className="use-rules-button" onClick={onUseRules}
             aria-label={`Use rules for ${displayName}`}>Use rules (clear manual choice)</button>}

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import Dashboard from "./Dashboard";
@@ -98,13 +98,21 @@ const transactionPage: TransactionPage = {
   pageSize: 10,
 };
 
+function planningFixture(command: string) {
+  if (command === "list_budgets") return {
+    month: "2026-10", asOf: "2026-10-09", periodEnd: "2026-10-09", previousMonth: "2026-09",
+    previousEnd: null, comparisonMode: "same_day", rows: [],
+  };
+  if (command === "list_savings_goals") return [];
+}
+
 describe("financial dashboard", () => {
   beforeEach(() => {
     invokeMock.mockReset();
     invokeMock.mockImplementation(async (command) => {
       if (command === "list_finance_data") return financeData;
       if (command === "list_transactions") return transactionPage;
-      return undefined;
+      return planningFixture(command);
     });
   });
 
@@ -206,7 +214,7 @@ describe("financial dashboard", () => {
         ...transactionPage, transactions: [{ ...transactionPage.transactions[0], categoryId, categoryName,
           categorySource: categoryId === null ? "uncategorised" : "rule" }],
       };
-      return undefined;
+      return planningFixture(command);
     });
     render(<Dashboard onLock={vi.fn()} />);
     const select = await screen.findByRole("combobox", { name: "Category for North Market" });
@@ -215,6 +223,62 @@ describe("financial dashboard", () => {
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("update_transaction_category", {
       transactionId: 8, categoryId,
     }));
+  });
+
+  it("lets a filtered empty transaction feed recover without implying missing records are a balance", async () => {
+    let filtered = false;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_finance_data") return financeData;
+      if (command === "list_transactions") return filtered ? { ...transactionPage, transactions: [], total: 0 } : transactionPage;
+      return planningFixture(command);
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    await screen.findByText("North Market");
+    filtered = true;
+    fireEvent.change(screen.getByRole("textbox", { name: "Search transactions" }), { target: { value: "No match" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by type" }), { target: { value: "expense" } });
+    fireEvent.change(screen.getByRole("combobox", { name: "Filter by category" }), { target: { value: "1" } });
+    const clear = await screen.findByRole("button", { name: "Clear filters" });
+    filtered = false;
+    fireEvent.click(clear);
+    await screen.findByText("North Market");
+    expect(screen.getByRole("textbox", { name: "Search transactions" })).toHaveProperty("value", "");
+    expect(screen.getByRole("combobox", { name: "Filter by type" })).toHaveProperty("value", "");
+    expect(screen.getByRole("combobox", { name: "Filter by category" })).toHaveProperty("value", "");
+    expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
+    expect(screen.getByText(/not an account balance/)).toBeTruthy();
+  });
+
+  it("refreshes home previews after saving a budget or editing entered savings progress", async () => {
+    let limitPence = 5_000;
+    let progressPence = 0;
+    invokeMock.mockImplementation(async (command) => {
+      if (command === "list_finance_data") return financeData;
+      if (command === "list_transactions") return transactionPage;
+      if (command === "save_budget") { limitPence = 2_000; return; }
+      if (command === "save_savings_goal") { progressPence = 2_000; return; }
+      if (command === "list_budgets") return { ...planningFixture(command), rows: [
+        { categoryId: 1, categoryName: "Groceries", limitPence, usedPence: 1_200, previousUsedPence: null, recordCount: 1, previousRecordCount: 0 },
+      ] };
+      if (command === "list_savings_goals") return [{ id: 1, name: "Fictional reserve", targetPence: 10_000, progressPence, targetDate: null, notes: "" }];
+    });
+    render(<Dashboard onLock={vi.fn()} />);
+    const budgetPreview = await screen.findByRole("article", { name: "Budget check-in" });
+    expect(await within(budgetPreview).findByText("£38.00 left")).toBeTruthy();
+    fireEvent.click(within(budgetPreview).getByRole("button", { name: "Manage budgets" }));
+    expect(screen.getByRole("heading", { name: "Monthly category budgets" })).toBe(document.activeElement);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Groceries" }));
+    fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "20.00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
+    expect(await within(budgetPreview).findByText("£8.00 left")).toBeTruthy();
+    const goalPreview = screen.getByRole("article", { name: "Savings at a glance" });
+    fireEvent.click(within(goalPreview).getByRole("button", { name: "Manage goals" }));
+    expect(screen.getByRole("heading", { name: "Savings goals" })).toBe(document.activeElement);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit goal Fictional reserve" }));
+    fireEvent.change(screen.getByLabelText("Entered progress (GBP)"), { target: { value: "20.00" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save savings goal" }));
+    expect(await within(goalPreview).findByText("20% saved")).toBeTruthy();
+    expect(within(goalPreview).getByText("£80.00 to go")).toBeTruthy();
   });
 
   it("refreshes restored records and clears stale filters, forms and deletion confirmations", async () => {
@@ -229,7 +293,7 @@ describe("financial dashboard", () => {
         restored = true;
         return { safetyBackupPath: "/fictional/private-backups/safety.ppbackup", recordCount: 0 };
       }
-      return undefined;
+      return planningFixture(command);
     });
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
@@ -248,7 +312,8 @@ describe("financial dashboard", () => {
     expect(screen.queryByRole("button", { name: "Save transaction" })).toBeNull();
     expect(screen.getByRole("textbox", { name: "Search transactions" })).toHaveProperty("value", "");
     expect(screen.getByLabelText("Restore backup passphrase")).toHaveProperty("value", "");
-    expect(invokeMock).toHaveBeenLastCalledWith("list_transactions", { filter: expect.objectContaining({ search: "", categoryId: null, kind: null, page: 0 }) });
+    expect(invokeMock.mock.calls.filter(([command]) => command === "list_transactions").slice(-1)[0]?.[1])
+      .toEqual({ filter: expect.objectContaining({ search: "", categoryId: null, kind: null, page: 0 }) });
   });
 
   it("shows conflicts and refreshes the category breakdown after reclassification", async () => {
@@ -263,7 +328,7 @@ describe("financial dashboard", () => {
         ...transactionPage, transactions: [{ ...transactionPage.transactions[0], categoryId: null, categoryName: null, categorySource: "uncategorised",
           categoryExplanation: "Conflict: equal highest priority targets different categories. No category assigned." }],
       };
-      return undefined;
+      return planningFixture(command);
     });
     render(<Dashboard onLock={vi.fn()} />);
     expect(await screen.findByText(/Conflict: equal highest priority/)).toBeTruthy();

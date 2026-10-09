@@ -1,20 +1,11 @@
 import { useEffect, useState } from "react";
-import type { FormEvent } from "react";
+import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, localIsoDate, poundsToPence } from "./finance";
-import type { Category } from "./finance";
+import type { BudgetData, Category } from "./finance";
 
-type BudgetRow = {
-  categoryId: number; categoryName: string; limitPence: number; usedPence: number;
-  previousUsedPence: number | null; recordCount: number; previousRecordCount: number;
-};
-type BudgetData = {
-  month: string; asOf: string; periodEnd: string | null; previousMonth: string;
-  previousEnd: string | null; comparisonMode: string; rows: BudgetRow[];
-};
-
-export default function Budgets({ month, categories, refreshKey }: {
-  month: string; categories: Category[]; refreshKey: number;
+export default function Budgets({ month, categories, refreshKey, onChanged, headingRef }: {
+  month: string; categories: Category[]; refreshKey: number; onChanged?: () => void; headingRef?: Ref<HTMLHeadingElement>;
 }) {
   const [data, setData] = useState<BudgetData | null>(null);
   const [error, setError] = useState("");
@@ -40,6 +31,7 @@ export default function Budgets({ month, categories, refreshKey }: {
       await invoke(command, args);
       setMessage(success); setDeleting(null);
       setRevision((value) => value + 1);
+      onChanged?.();
     } catch (error) {
       setError(financeError(error));
     } finally { setBusy(false); }
@@ -57,7 +49,7 @@ export default function Budgets({ month, categories, refreshKey }: {
   }
 
   return <section className="panel finance-management" aria-labelledby="budgets-title">
-    <h2 id="budgets-title">Monthly category budgets</h2>
+    <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly category budgets</h2>
     <p className="policy-note">Limits apply only to {month}. Used = recorded expenses less refunds in the current category;
       transfers excluded. These figures are not bank balances or proof of complete history.</p>
     {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry budgets</button></div>}
@@ -85,7 +77,7 @@ export default function Budgets({ month, categories, refreshKey }: {
           return <li key={row.categoryId}>
             <h3>{row.categoryName}</h3>
             <p>{formatPence(row.usedPence)} used / {formatPence(row.limitPence)} limit</p>
-            <progress aria-label={`${row.categoryName} budget progress`} value={Math.min(100, percent)} max={100} />
+            <progress className={exceeded ? "over" : undefined} aria-label={`${row.categoryName} budget progress`} value={Math.min(100, percent)} max={100} />
             <p className={exceeded ? "budget-exceeded" : ""}>{status} · {(Math.round(percent * 10) / 10).toFixed(1)}%</p>
             <p>{exceeded ? `${formatPence(row.usedPence - row.limitPence)} over limit.`
               : `${formatPence(row.limitPence - row.usedPence)} remaining allowance.`}</p>

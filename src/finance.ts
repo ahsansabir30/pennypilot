@@ -67,6 +67,21 @@ export type TransactionPage = {
   pageSize: number;
 };
 
+export type BudgetRow = {
+  categoryId: number; categoryName: string; limitPence: number; usedPence: number;
+  previousUsedPence: number | null; recordCount: number; previousRecordCount: number;
+};
+
+export type BudgetData = {
+  month: string; asOf: string; periodEnd: string | null; previousMonth: string;
+  previousEnd: string | null; comparisonMode: string; rows: BudgetRow[];
+};
+
+export type SavingsGoal = {
+  id: number; name: string; targetPence: number; progressPence: number;
+  targetDate: string | null; notes: string;
+};
+
 export function poundsToPence(value: string): number | null {
   const match = /^(\d{1,9})(?:\.(\d{1,2}))?$/.exec(value.trim());
   if (!match) return null;

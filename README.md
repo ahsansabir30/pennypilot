@@ -15,6 +15,8 @@ The recovery key is available only through the OS credential store on the device
 
 The unlocked workspace now includes a financial overview backed by encrypted SQLite records. New workspaces receive a GBP main account and starter income/expense categories; they do not receive fictional financial transactions or hardcoded dashboard totals. Transactions are entered manually in this increment.
 
+The home dashboard surfaces up to three monthly category budgets (highest usage first) and three savings goals, with clear links to their complete editors. A count includes all over-limit budgets, even beyond the preview. Remaining allowance comes from recorded category expenses less refunds, not an assumed balance; savings progress is the amount you explicitly entered. These previews refresh after edits, category corrections and restore, and provide independent loading, error/retry and actionable empty states. Phone and tablet layouts show transactions as readable cards without horizontal scrolling, while desktop retains a searchable table. Manual category explanations are available under **Category details**; conflicting automatic rules remain visible. Bills, subscriptions and unusual-spending alerts are not fabricated from missing evidence.
+
 ## Deterministic categorisation
 
 - Merchant normalization lowercases Unicode letters, replaces punctuation/whitespace runs with a single space, and trims the result. Digits and accents are retained; original merchant text is kept. It does not guess away bank prefixes, branch numbers, or references.
