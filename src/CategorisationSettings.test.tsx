@@ -33,6 +33,7 @@ describe("categorisation management", () => {
   it("creates and edits rules with priority, method and enablement", async () => {
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
     await screen.findByRole("button", { name: "Edit rule north market" });
+    fireEvent.click(screen.getByRole("button", { name: "Add rule" }));
     fireEvent.change(screen.getByLabelText("Merchant pattern"), { target: { value: "Coffee Shop" } });
     fireEvent.change(screen.getByLabelText("Rule category"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Priority"), { target: { value: "40" } });

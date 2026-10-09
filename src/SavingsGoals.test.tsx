@@ -47,6 +47,7 @@ describe("savings goals", () => {
   it.each(["0", "-1", "1.001"])("rejects invalid target %s and does not save", async (target) => {
     render(<SavingsGoals />);
     await screen.findByRole("heading", { name: "Fictional rainy day" });
+    fireEvent.click(screen.getByRole("button", { name: "Add savings goal" }));
     fireEvent.change(screen.getByLabelText("Goal name"), { target: { value: "Fictional goal" } });
     fireEvent.change(screen.getByLabelText("Target (GBP)"), { target: { value: target } });
     fireEvent.click(screen.getByRole("button", { name: "Save savings goal" }));
@@ -61,6 +62,7 @@ describe("savings goals", () => {
     });
     render(<SavingsGoals />);
     await screen.findByText(/No savings goals yet/);
+    fireEvent.click(screen.getByRole("button", { name: "Add savings goal" }));
     fireEvent.change(screen.getByLabelText("Goal name"), { target: { value: "Fictional start" } });
     fireEvent.change(screen.getByLabelText("Target (GBP)"), { target: { value: "1.01" } });
     fireEvent.click(screen.getByRole("button", { name: "Save savings goal" }));

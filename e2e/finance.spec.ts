@@ -23,6 +23,93 @@ async function addExpense(page: Page, merchant = "Fictional Coffee Shop", amount
   await expect(page.getByText(merchant, { exact: true })).toBeVisible();
 }
 
+const popupEditors = [
+  { page: "Transactions", add: "Add transaction", field: "Description", value: "Fictional popup expense", amount: "Amount (GBP)", save: "Save transaction", command: "create_transaction" },
+  { page: "Budgets", add: "Add budget", field: "Monthly limit (GBP)", value: "200.01", select: "Budget category", save: "Save monthly budget", command: "save_budget" },
+  { page: "Savings", add: "Add savings goal", field: "Goal name", value: "Fictional popup goal", amount: "Target (GBP)", save: "Save savings goal", command: "save_savings_goal" },
+  { page: "Categories & Rules", add: "Add category", field: "Category name", value: "Fictional popup category", save: "Save category", command: "save_category" },
+  { page: "Categories & Rules", add: "Add rule", field: "Merchant pattern", value: "Fictional popup merchant", select: "Rule category", save: "Save rule", command: "save_category_rule" },
+];
+
+for (const editor of popupEditors) {
+  test(`${editor.add} popup traps focus, retains failed saves and blocks closing while saving`, async ({ page }) => {
+    await home(page);
+    if (editor.page !== "Transactions") await navigate(page, editor.page);
+    const trigger = page.getByRole("button", { name: editor.add, exact: true });
+    await expect(page.getByLabel(editor.field, { exact: true })).toHaveCount(0);
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: editor.add, exact: true });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+    const bounds = await dialog.boundingBox();
+    expect(bounds).not.toBeNull();
+    expect(bounds!.x).toBeGreaterThanOrEqual(0);
+    expect(bounds!.y).toBeGreaterThanOrEqual(0);
+    expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+    const first = dialog.getByRole("button", { name: `Close ${editor.add}`, exact: true });
+    const cancel = dialog.getByRole("button", { name: /^Cancel/ });
+    await cancel.focus();
+    await page.keyboard.press("Tab");
+    await expect(first).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(cancel).toBeFocused();
+    await expect(page.getByRole("navigation", { name: "Workspace pages" })).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(trigger).toBeFocused();
+
+    await trigger.click();
+    await dialog.getByLabel(editor.field, { exact: true }).fill(editor.value);
+    if (editor.amount) await dialog.getByLabel(editor.amount, { exact: true }).fill("10.01");
+    if (editor.select) await dialog.getByRole("combobox", { name: editor.select, exact: true }).selectOption("1");
+    await page.evaluate((command) => window.__pennyTest.failNext(command, "Fictional popup save failed."), editor.command);
+    await dialog.getByRole("button", { name: editor.save, exact: true }).click();
+    await expect(dialog.getByRole("alert")).toContainText("Fictional popup save failed.");
+    await expect(dialog.getByLabel(editor.field, { exact: true })).toHaveValue(editor.value);
+    await expect(dialog).toBeVisible();
+
+    await page.evaluate((command) => window.__pennyTest.hold(command), editor.command);
+    await dialog.getByRole("button", { name: editor.save, exact: true }).click();
+    await expect(first).toBeDisabled();
+    await expect(cancel).toBeDisabled();
+    await expect(dialog.getByLabel(editor.field, { exact: true })).toBeDisabled();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeVisible();
+    expect(await page.evaluate((command) => window.__pennyTest.calls.filter((call) => call.command === command).length, editor.command)).toBe(2);
+    await page.evaluate((command) => window.__pennyTest.release(command), editor.command);
+    await expect(dialog).toHaveCount(0);
+    if (editor.page === "Transactions" || editor.page === "Categories & Rules") {
+      await expect(page.getByRole("heading", { name: editor.page, level: 1 })).toBeFocused();
+    }
+    else await expect(trigger).toBeFocused();
+    await trigger.click();
+    await expect(dialog.getByLabel(editor.field, { exact: true })).toHaveValue("");
+    await cancel.click();
+    await expect(dialog).toHaveCount(0);
+  });
+}
+
+test("transaction category popup only persists deliberate saves and retains failed changes", async ({ page }) => {
+  await home(page);
+  const trigger = page.getByRole("button", { name: "Edit category for Fictional Merchant 16", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Edit transaction category" });
+  await trigger.click();
+  await dialog.getByLabel("Category for Fictional Merchant 16", { exact: true }).selectOption("");
+  await dialog.getByRole("button", { name: "Cancel category choice" }).click();
+  await expect(trigger).toContainText("Fictional Food");
+  expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "update_transaction_category").length)).toBe(0);
+  await trigger.click();
+  await dialog.getByLabel("Category for Fictional Merchant 16", { exact: true }).selectOption("");
+  await page.evaluate(() => window.__pennyTest.failNext("update_transaction_category", "Fictional category update failed."));
+  await dialog.getByRole("button", { name: "Save category choice" }).click();
+  await expect(dialog.getByRole("alert")).toContainText("Fictional category update failed.");
+  await expect(dialog.getByLabel("Category for Fictional Merchant 16", { exact: true })).toHaveValue("");
+  await dialog.getByRole("button", { name: "Save category choice" }).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toContainText("Uncategorised");
+});
+
 test("earliest accepted source date keeps dashboard and budgets usable without inferred comparison", async ({ page }) => {
   await home(page);
   await page.getByRole("button", { name: "Add transaction", exact: true }).click();
@@ -37,6 +124,7 @@ test("earliest accepted source date keeps dashboard and budgets usable without i
   await expect(page.getByRole("img", { name: "Available income and spending trend", exact: true })).toBeVisible();
   await expect(page.locator(".trend-month")).toHaveCount(1);
   await page.getByRole("link", { name: "Set your first budget", exact: true }).click();
+  await page.getByRole("button", { name: "Add budget", exact: true }).click();
   await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
   await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("10.00");
   await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
@@ -60,6 +148,7 @@ test.describe("exact aggregate currency", () => {
     await expect(page.locator(".category-list")).toContainText("£90,071,999,999,099.29");
     await expect(page.locator(".trend-values")).toContainText("-£90,071,999,999,099.29");
     await page.getByRole("link", { name: "Set your first budget", exact: true }).click();
+    await page.getByRole("button", { name: "Add budget", exact: true }).click();
     await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
     await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("100.00");
     await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
@@ -153,7 +242,7 @@ test("transactions validate, close, save exact pence, preserve manual categories
   await page.getByRole("button", { name: "Add transaction", exact: true }).click();
   await page.getByRole("button", { name: "Save transaction", exact: true }).click();
   expect(await page.getByLabel("Amount (GBP)", { exact: true }).evaluate((element: HTMLInputElement) => element.validity.valueMissing)).toBe(true);
-  await page.getByRole("button", { name: "Close transaction form" }).click();
+  await page.getByRole("button", { name: "Close Add transaction" }).click();
   await expect(page.getByRole("button", { name: "Save transaction", exact: true })).toHaveCount(0);
   await addExpense(page);
   const last = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "create_transaction").slice(-1)[0]);
@@ -163,10 +252,16 @@ test("transactions validate, close, save exact pence, preserve manual categories
   await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeHidden();
   await row.getByText("Category details", { exact: true }).click();
   await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeVisible();
-  await row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true }).selectOption("");
-  await expect(row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true })).toHaveValue("");
-  await row.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true }).click();
-  await expect(row.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true })).toHaveValue("automatic");
+  await row.getByRole("button", { name: "Edit category for Fictional Coffee Shop", exact: true }).click();
+  const categoryDialog = page.getByRole("dialog", { name: "Edit transaction category" });
+  await categoryDialog.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true }).selectOption("");
+  await expect(categoryDialog.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true })).toHaveValue("");
+  await categoryDialog.getByRole("button", { name: "Save category choice" }).click();
+  await expect(categoryDialog).toHaveCount(0);
+  await expect(row.getByRole("button", { name: "Edit category for Fictional Coffee Shop", exact: true })).toContainText("Uncategorised");
+  await row.getByRole("button", { name: "Edit category for Fictional Coffee Shop", exact: true }).click();
+  await categoryDialog.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true }).click();
+  await expect(categoryDialog).toHaveCount(0);
   await expect(row.getByText("Automatic", { exact: true })).toBeVisible();
   await expect(row.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true })).toHaveCount(0);
   await row.getByRole("button", { name: "Delete Fictional Coffee Shop", exact: true }).click();
@@ -199,7 +294,7 @@ test("search, every sort, filters, pagination and source-month controls work", a
   await expect(page.getByRole("textbox", { name: "Search transactions", exact: true })).toHaveValue("");
   await page.getByRole("combobox", { name: "Filter by type", exact: true }).selectOption("transfer");
   await expect(page.getByText("Fictional Merchant 4", { exact: true })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "Category for Fictional Merchant 4", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Edit category for Fictional Merchant 4", exact: true })).toHaveCount(0);
   await page.getByRole("combobox", { name: "Filter by type", exact: true }).selectOption("refund");
   await expect(page.getByText("Fictional Merchant 3", { exact: true })).toBeVisible();
   await page.getByRole("combobox", { name: "Filter by type", exact: true }).selectOption("expense");
@@ -221,6 +316,7 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await home(page);
   await navigate(page, "Budgets");
   const panel = page.getByRole("region", { name: "Monthly category budgets" });
+  await panel.getByRole("button", { name: "Add budget", exact: true }).click();
   await panel.getByRole("button", { name: "Save monthly budget", exact: true }).click();
   expect(await panel.getByLabel("Budget category").evaluate((element: HTMLSelectElement) => element.validity.valueMissing)).toBe(true);
   await panel.getByLabel("Budget category").selectOption("1");
@@ -230,24 +326,23 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await panel.getByLabel("Monthly limit (GBP)").fill("500.01");
   await panel.getByRole("button", { name: "Save monthly budget", exact: true }).click();
   await expect(panel.getByRole("status")).toHaveText("Budget saved for 2024-02.");
-  await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("");
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await navigate(page, "Overview");
   await expect(page.getByRole("article", { name: "Budgets", exact: true })).toContainText("£500.01");
   await navigate(page, "Budgets");
   await panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true }).click();
-  await expect(panel.getByRole("list", { name: "Category budgets" }).getByRole("listitem")).toHaveCount(1);
+  await expect(panel.getByRole("list", { name: "Category budgets", includeHidden: true }).getByRole("listitem", { includeHidden: true })).toHaveCount(1);
   await expect(panel.getByRole("heading", { name: "Edit budget limit" })).toBeVisible();
   await expect(panel.getByLabel("Monthly limit (GBP)")).toBeFocused();
   await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("500.01");
   await panel.getByLabel("Monthly limit (GBP)").fill("250.01");
   await panel.getByRole("button", { name: "Save monthly budget", exact: true }).click();
   await expect(panel.getByText("£108.00 used / £250.01 limit", { exact: true })).toBeVisible();
-  await expect(panel.getByRole("heading", { name: "Set a budget limit" })).toBeVisible();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true }).click();
   await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("250.01");
-  await panel.getByRole("button", { name: "Clear budget form", exact: true }).click();
-  await expect(panel.getByRole("heading", { name: "Set a budget limit" })).toBeVisible();
-  await expect(panel.getByLabel("Budget category")).toHaveValue("");
+  await panel.getByRole("button", { name: "Cancel budget", exact: true }).click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByText("Period details", { exact: true }).click();
   await expect(panel.getByText(/current period 2024-02-01 through 2024-02-15/)).toBeVisible();
   await panel.getByText("Calculation details", { exact: true }).click();
@@ -266,12 +361,14 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
 test("multiple budgets remain separate list rows with an accessible responsive limit editor", async ({ page }, testInfo) => {
   await home(page);
   await navigate(page, "Categories & Rules");
+  await page.getByRole("button", { name: "Add category", exact: true }).click();
   await page.getByLabel("Category name").fill("Fictional Travel");
   await page.getByLabel("Category type").selectOption("expense");
   await page.getByRole("button", { name: "Save category", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Category saved.");
   await navigate(page, "Budgets");
   for (const category of ["Fictional Food", "Fictional Travel"]) {
+    await page.getByRole("button", { name: "Add budget", exact: true }).click();
     await page.getByLabel("Budget category").selectOption({ label: category });
     await page.getByLabel("Monthly limit (GBP)").fill("100.00");
     await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
@@ -295,17 +392,16 @@ test("multiple budgets remain separate list rows with an accessible responsive l
   expect(limitBox).not.toBeNull();
   if (testInfo.project.name === "mobile") {
     expect(limitBox!.y).toBeGreaterThanOrEqual(categoryBox!.y + categoryBox!.height);
-  } else {
-    expect(Math.abs(limitBox!.y - categoryBox!.y)).toBeLessThanOrEqual(2);
   }
-  await page.getByRole("button", { name: "Clear budget form", exact: true }).click();
-  await expect(page.getByLabel("Monthly limit (GBP)")).toHaveValue("");
+  await page.getByRole("button", { name: "Cancel budget", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
 });
 
 test("savings add, invalid values, explicit progress, edit/cancel, notes and delete/cancel work", async ({ page }) => {
   await home(page);
   await navigate(page, "Savings");
   const panel = page.getByRole("region", { name: "Savings goals", exact: true });
+  await panel.getByRole("button", { name: "Add savings goal", exact: true }).click();
   await panel.getByRole("button", { name: "Save savings goal", exact: true }).click();
   expect(await panel.getByLabel("Goal name").evaluate((element: HTMLInputElement) => element.validity.valueMissing)).toBe(true);
   await panel.getByLabel("Goal name").fill("Fictional holiday");
@@ -321,7 +417,7 @@ test("savings add, invalid values, explicit progress, edit/cancel, notes and del
   await panel.getByRole("button", { name: "Edit goal Fictional holiday", exact: true }).click();
   await expect(panel.getByLabel("Target date (optional)")).toHaveValue("2028-02-29");
   await panel.getByRole("button", { name: "Cancel goal edit", exact: true }).click();
-  await expect(panel.getByLabel("Goal name")).toHaveValue("");
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Edit goal Fictional holiday", exact: true }).click();
   await panel.getByLabel("Entered progress (GBP)").fill("120");
   await panel.getByRole("button", { name: "Save savings goal", exact: true }).click();
@@ -345,6 +441,7 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await home(page);
   await navigate(page, "Categories & Rules");
   const panel = page.getByRole("region", { name: "Categories and rules" });
+  await panel.getByRole("button", { name: "Add category", exact: true }).click();
   await panel.getByLabel("Category name").fill("Fictional Travel");
   await panel.getByLabel("Category type").selectOption("expense");
   await panel.getByLabel("Category colour").fill("#336699");
@@ -355,11 +452,12 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await panel.getByRole("button", { name: "Edit Fictional Travel", exact: true }).click();
   await expect(panel.getByLabel("Category type")).toBeDisabled();
   await panel.getByRole("button", { name: "Cancel category edit", exact: true }).click();
-  await expect(panel.getByLabel("Category name")).toHaveValue("");
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Edit Fictional Travel", exact: true }).click();
   await panel.getByLabel("Category name").fill("Fictional Trips");
   await panel.getByRole("button", { name: "Save category", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit Fictional Trips", exact: true })).toBeVisible();
+  await panel.getByRole("button", { name: "Add rule", exact: true }).click();
   await panel.getByLabel("Merchant pattern").fill("Fictional Merchant");
   await panel.getByLabel("Match method").selectOption("contains");
   await panel.getByLabel("Rule category").selectOption({ label: "Fictional Trips (expense)" });
@@ -373,7 +471,7 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await expect(panel.getByText(/Priority 50 · Disabled/)).toBeVisible();
   await panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true }).click();
   await panel.getByRole("button", { name: "Cancel rule edit", exact: true }).click();
-  await expect(panel.getByLabel("Merchant pattern")).toHaveValue("");
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Reclassify automatic transactions", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText("Manual choices preserved.");
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
@@ -417,7 +515,7 @@ test("private export consent, backup validation, failed restore and successful r
   await panel.getByLabel("I understand this writes sensitive transactions to an unencrypted CSV file.").check();
   await navigate(page, "Transactions");
   await page.getByRole("button", { name: "Add transaction", exact: true }).click();
-  await page.getByRole("button", { name: "Close transaction form", exact: true }).click();
+  await page.getByRole("button", { name: "Close Add transaction", exact: true }).click();
   await addExpense(page, "Fictional post-backup expense");
   await navigate(page, "Export & Backup");
   await expect(panel.getByLabel("Backup passphrase", { exact: true })).toHaveValue("");
@@ -640,7 +738,7 @@ test("pending transaction saves disable duplicate submits and close, then recalc
   await page.getByLabel("Amount (GBP)", { exact: true }).fill("12.34");
   await page.getByLabel("Description", { exact: true }).fill("Fictional pending expense");
   await page.getByRole("button", { name: "Save transaction", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Close transaction form" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Close Add transaction" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
   expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "create_transaction").length)).toBe(1);
   await page.evaluate(() => window.__pennyTest.release("create_transaction"));

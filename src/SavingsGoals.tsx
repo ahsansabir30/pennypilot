@@ -3,6 +3,7 @@ import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, poundsToPence } from "./finance";
 import type { SavingsGoal } from "./finance";
+import Modal from "./Modal";
 
 const empty = { id: null as number | null, name: "", target: "", progress: "0.00", targetDate: "", notes: "" };
 
@@ -15,6 +16,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -30,6 +32,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     try {
       await invoke(command, args);
       setForm(empty); setDeleting(null); setMessage(success); setRevision((value) => value + 1);
+      setShowForm(false);
       onChanged?.();
     } catch (error) { setError(financeError(error)); }
     finally { setBusy(false); }
@@ -51,7 +54,8 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
   return <section id="savings-panel" className="panel finance-management" aria-labelledby="savings-title">
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Savings goals</h2>
     <p className="policy-note">Entered progress, not a bank balance. No money is moved or completion predicted.</p>
-    {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
+    <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setForm(empty); setError(""); setShowForm(true); }}>Add savings goal</button>
+    {error && !showForm && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading savings goals...</p>}
     {!loading && goals.length === 0 && !error && <p>No savings goals yet.</p>}
@@ -69,10 +73,10 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
           <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">Inputs: entered progress {formatPence(goal.progressPence)} ÷ target {formatPence(goal.targetPence)}.
             {goal.targetDate ? ` Target date: ${goal.targetDate} (your preference, not a forecast).` : " No target date."}</p></details>
           {goal.notes && <details className="calculation-details"><summary>Notes</summary><p className="goal-notes">{goal.notes}</p></details>}
-          <button type="button" disabled={busy} onClick={() => setForm({
+          <button type="button" disabled={busy} onClick={() => { setError(""); setShowForm(true); setForm({
             id: goal.id, name: goal.name, target: (goal.targetPence / 100).toFixed(2), progress: (goal.progressPence / 100).toFixed(2),
             targetDate: goal.targetDate ?? "", notes: goal.notes,
-          })}>Edit goal {goal.name}</button>
+          }); }}>Edit goal {goal.name}</button>
           <button type="button" disabled={busy} onClick={() => setDeleting(goal.id)}>Delete goal {goal.name}</button>
         </li>;
       })}
@@ -82,8 +86,11 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
       <button type="button" disabled={busy} onClick={() => void mutate("delete_savings_goal", { goalId: deleting }, "Savings goal deleted.")}>Confirm goal deletion</button>
       <button type="button" disabled={busy} onClick={() => setDeleting(null)}>Cancel goal deletion</button>
     </div>}
+    {showForm && <Modal title={form.id === null ? "Add savings goal" : "Edit savings goal"} busy={busy}
+      onClose={() => { setShowForm(false); setError(""); }}>
+    {error && <p role="alert">{error}</p>}
     <form className="transaction-form" onSubmit={(event) => void save(event)}>
-      <h3>{form.id === null ? "New savings goal" : "Edit savings goal"}</h3>
+      <fieldset disabled={busy}>
       <div className="transaction-form-grid">
         <label>Goal name<input required maxLength={80} value={form.name} onChange={(event) => setForm({ ...form, name: event.currentTarget.value })} /></label>
         <label>Target (GBP)<input required inputMode="decimal" value={form.target} onChange={(event) => setForm({ ...form, target: event.currentTarget.value })} /></label>
@@ -93,8 +100,11 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
         <label className="goal-notes-field">Goal notes<textarea maxLength={1000} value={form.notes}
           onChange={(event) => setForm({ ...form, notes: event.currentTarget.value })} /></label>
       </div>
-      <button type="submit" disabled={busy}>Save savings goal</button>
-      {form.id !== null && <button type="button" disabled={busy} onClick={() => setForm(empty)}>Cancel goal edit</button>}
-    </form>
+      </fieldset>
+      <div className="modal-actions">
+        <button type="submit" disabled={busy}>Save savings goal</button>
+        <button type="button" disabled={busy} onClick={() => { setForm(empty); setShowForm(false); setError(""); }}>Cancel goal edit</button>
+      </div>
+    </form></Modal>}
   </section>;
 }

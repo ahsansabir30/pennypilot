@@ -117,6 +117,14 @@ detailed accounting, workspace security, export and restore contracts.
   explanations. Do not remove failure feedback or safety consent to reduce text.
 - Every visible control must work or be intentionally disabled with a clear state.
   Test save failure, cancel, confirmation, retries and refresh after mutations.
+- Record add/edit actions use the shared `src/Modal.tsx` popup, not inline forms:
+  transactions, transaction category corrections, budget limits, savings goals,
+  categories and merchant rules. Keep lists on their dedicated pages. Preserve
+  focus trapping, inert background, Escape/cancel, scroll restoration and focus
+  return (page-heading fallback when the opener is unavailable during refresh).
+  Disable inputs and dismissal during saving; retain values/errors on failure,
+  close only after success, and start Add with a clean form. Filters, comparison
+  preferences and private export/backup remain page controls, not record editors.
 - Key displayed finance results to their period/filter/page and refresh revision.
   Never label cached totals or rows as a newly requested period. Hide stale data
   during loading/failure, disable edits without current metadata, and clamp

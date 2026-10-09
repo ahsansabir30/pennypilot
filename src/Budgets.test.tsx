@@ -43,8 +43,8 @@ describe("monthly budgets", () => {
 
   it("saves exact pence, edits limits and persists comparison preference", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
+    await screen.findByRole("list", { name: "Category budgets" });
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Fictional Food" }));
-    expect(screen.getByRole("list", { name: "Category budgets" })).toBeTruthy();
     expect(screen.getByRole("heading", { name: "Edit budget limit" })).toBeTruthy();
     expect(screen.getByLabelText("Monthly limit (GBP)")).toBe(document.activeElement);
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "100.00");
@@ -52,9 +52,8 @@ describe("monthly budgets", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget", { input: { month: "2024-02", categoryId: 1, limitPence: 25_001 } }));
     await screen.findByText("Budget saved for 2024-02.");
-    expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "");
-    expect(screen.getByRole("heading", { name: "Set a budget limit" })).toBeTruthy();
-    fireEvent.change(screen.getByLabelText("Comparison period"), { target: { value: "full_month" } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.change(await screen.findByLabelText("Comparison period"), { target: { value: "full_month" } });
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget_preferences", { comparisonMode: "full_month" }));
   });
 
@@ -65,6 +64,7 @@ describe("monthly budgets", () => {
     });
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     await screen.findByRole("heading", { name: "Fictional Food" });
+    fireEvent.click(screen.getByRole("button", { name: "Add budget" }));
     fireEvent.change(screen.getByLabelText("Budget category"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "1.001" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
@@ -75,9 +75,8 @@ describe("monthly budgets", () => {
     await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("Workspace is locked."));
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "1.00");
     expect(screen.getByLabelText("Budget category")).toHaveProperty("value", "1");
-    fireEvent.click(screen.getByRole("button", { name: "Clear budget form" }));
-    expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "");
-    expect(screen.getByLabelText("Budget category")).toHaveProperty("value", "");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel budget" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
@@ -121,11 +120,10 @@ describe("monthly budgets", () => {
     await waitFor(() => expect(finishSave).toBeDefined());
     expect(screen.getByLabelText("Budget category")).toHaveProperty("disabled", true);
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("disabled", true);
-    expect(screen.getByRole("button", { name: "Clear budget form" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Cancel budget" })).toHaveProperty("disabled", true);
     if (!finishSave) throw new Error("Expected a pending budget save.");
     finishSave();
     await screen.findByText("Budget saved for 2024-02.");
-    expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("disabled", false);
-    expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "");
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

@@ -290,9 +290,11 @@ describe("financial dashboard", () => {
   it("supports bounded category correction and confirmed deletion", async () => {
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
+    fireEvent.click(screen.getByRole("button", { name: "Edit category for North Market" }));
     fireEvent.change(screen.getByRole("combobox", { name: "Category for North Market" }), {
       target: { value: "" },
     });
+    fireEvent.click(screen.getByRole("button", { name: "Save category choice" }));
     await waitFor(() =>
       expect(invokeMock).toHaveBeenCalledWith("update_transaction_category", {
         transactionId: 8,
@@ -328,6 +330,7 @@ describe("financial dashboard", () => {
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
     expect(screen.getByText("Manual choice. Rules cannot overwrite this category.")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Edit category for North Market" }));
     fireEvent.click(screen.getByRole("button", { name: "Use rules for North Market" }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("reset_transaction_category", { transactionId: 8 }));
   });
@@ -345,9 +348,11 @@ describe("financial dashboard", () => {
       return planningFixture(command);
     });
     render(<Dashboard onLock={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Edit category for North Market" }));
     const select = await screen.findByRole("combobox", { name: "Category for North Market" });
     expect(select).toHaveProperty("value", "automatic");
     fireEvent.change(select, { target: { value: choice } });
+    fireEvent.click(screen.getByRole("button", { name: "Save category choice" }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("update_transaction_category", {
       transactionId: 8, categoryId,
     }));

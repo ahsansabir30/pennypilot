@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, localIsoDate, penceRatio, poundsToPence } from "./finance";
 import type { BudgetData, Category } from "./finance";
+import Modal from "./Modal";
 
 export default function Budgets({ month, categories, refreshKey, onChanged, headingRef }: {
   month: string; categories: Category[]; refreshKey: number; onChanged?: () => void; headingRef?: Ref<HTMLHeadingElement>;
@@ -15,7 +16,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
   const [form, setForm] = useState({ categoryId: "", limit: "" });
   const [deleting, setDeleting] = useState<number | null>(null);
   const [editing, setEditing] = useState(false);
-  const limitRef = useRef<HTMLInputElement>(null);
+  const [showForm, setShowForm] = useState(false);
   const eligible = categories.filter((category) => category.categoryType === "expense");
   const requestKey = `${month}:${refreshKey}:${revision}`;
   const current = result?.key === requestKey && result.data?.month === month ? result.data : null;
@@ -55,13 +56,17 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       `Budget saved for ${month}.`)) {
       setForm({ categoryId: "", limit: "" });
       setEditing(false);
+      setShowForm(false);
     }
   }
 
   return <section id="budgets-panel" className="panel finance-management" aria-labelledby="budgets-title">
     <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly category budgets</h2>
     <p className="policy-note">Expenses less refunds; transfers excluded. Recorded history may be incomplete.</p>
-    {displayedError && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
+    <button className="add-transaction-button" type="button" disabled={busy || eligible.length === 0} onClick={() => {
+      setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setShowForm(true);
+    }}>Add budget</button>
+    {displayedError && !showForm && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}
     {current && <>
@@ -109,8 +114,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
               <button type="button" aria-label={`Edit budget for ${row.categoryName}`} disabled={busy} onClick={() => {
                 setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) });
                 setEditing(true); setError(""); setMessage("");
-                limitRef.current?.focus();
-                limitRef.current?.scrollIntoView?.({ block: "center" });
+                setShowForm(true);
               }}>Edit</button>
               <button className="budget-remove" type="button" aria-label={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove</button>
             </div>
@@ -129,9 +133,10 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       <button type="button" disabled={busy} onClick={() => void mutate("delete_budget", { month, categoryId: deleting }, "Budget removed.")}>Confirm budget removal</button>
       <button type="button" disabled={busy} onClick={() => setDeleting(null)}>Cancel budget removal</button>
     </div>}
+    {showForm && <Modal title={editing ? "Edit budget limit" : "Add budget"} busy={busy} onClose={() => { setShowForm(false); setError(""); }}>
+    {displayedError && <p role="alert">{displayedError}</p>}
     <form className="transaction-form budget-limit-form" onSubmit={(event) => void save(event)}>
       <div className="budget-editor-heading">
-        <h3>{editing ? "Edit budget limit" : "Set a budget limit"}</h3>
         <span>{month}</span>
       </div>
       <div className="transaction-form-grid budget-limit-fields">
@@ -141,16 +146,17 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
         </select></label>
         <div className="budget-amount-field"><label htmlFor="budget-limit">Monthly limit (GBP)</label><span className="budget-amount-input">
           <span aria-hidden="true">£</span>
-          <input id="budget-limit" ref={limitRef} required disabled={busy} inputMode="decimal" placeholder="0.00" value={form.limit}
+          <input id="budget-limit" data-modal-focus={editing ? true : undefined} required disabled={busy} inputMode="decimal" placeholder="0.00" value={form.limit}
             onChange={(event) => setForm({ ...form, limit: event.currentTarget.value })} />
         </span></div>
       </div>
       <div className="budget-editor-actions">
         <button type="submit" disabled={busy || eligible.length === 0}>Save monthly budget</button>
-        {(form.categoryId || form.limit) && <button type="button" disabled={busy} onClick={() => {
+        <button type="button" disabled={busy} onClick={() => {
           setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setMessage("");
-        }}>Clear budget form</button>}
+          setShowForm(false);
+        }}>Cancel budget</button>
       </div>
-    </form>
+    </form></Modal>}
   </section>;
 }

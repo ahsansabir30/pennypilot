@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import type { Category, CategoryRule } from "./finance";
+import Modal from "./Modal";
 
 type Props = { categories: Category[]; onChanged: () => void };
 const newCategory = { id: null as number | null, name: "", categoryType: "expense", color: "#66896D" };
@@ -18,6 +19,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   const [pendingDelete, setPendingDelete] = useState<{ type: "category" | "rule"; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [rulesError, setRulesError] = useState("");
+  const [editor, setEditor] = useState<"category" | "rule" | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -35,8 +37,10 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
       setMessage(typeof success === "function" ? success(result) : success); setPendingDelete(null);
       setRevision((value) => value + 1);
       onChanged();
+      return true;
     } catch (error) {
       setError(errorText(error));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -44,20 +48,20 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
 
   async function saveCategory(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await perform(async () => {
+    if (await perform(async () => {
       await invoke("save_category", { input: category });
       setCategory(newCategory);
-    }, "Category saved.");
+    }, "Category saved.")) setEditor(null);
   }
 
   async function saveRule(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await perform(async () => {
+    if (await perform(async () => {
       await invoke("save_category_rule", { input: {
         ...rule, priority: Number(rule.priority), categoryId: Number(rule.categoryId),
       } });
       setRule(newRule);
-    }, "Rule saved. Use Reclassify automatic transactions to apply it to existing records.");
+    }, "Rule saved. Use Reclassify automatic transactions to apply it to existing records.")) setEditor(null);
   }
 
   async function remove() {
@@ -81,24 +85,27 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
       <details className="calculation-details"><summary>How rules work</summary>
         <p>Higher priority wins. Conflicting ties stay uncategorised.</p>
       </details>
-      {error && <p role="alert" className="form-message error">{error}</p>}
+      {error && !editor && <p role="alert" className="form-message error">{error}</p>}
       {rulesError && <div role="alert" className="form-message error">{rulesError}
         <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
       <div className="categorisation-grid">
         <div>
           <h3>Categories</h3>
+          <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setCategory(newCategory); setError(""); setEditor("category"); }}>Add category</button>
           <ul className="settings-list">
             {categories.map((item) => <li key={item.id}>
               <span><i style={{ background: item.color }} />{item.name} ({item.categoryType})</span>
               <div>
-                <button type="button" disabled={busy} onClick={() => setCategory(item)}>Edit {item.name}</button>
+                <button type="button" disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit {item.name}</button>
                 <button type="button" disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}>Delete {item.name}</button>
               </div>
             </li>)}
           </ul>
+          {editor === "category" && <Modal title={category.id ? "Edit category" : "Add category"} busy={busy} onClose={() => { setEditor(null); setError(""); }}>
+          {error && <p role="alert">{error}</p>}
           <form className="transaction-form" onSubmit={(event) => void saveCategory(event)}>
-            <h3>{category.id ? "Edit category" : "New category"}</h3>
+            <fieldset disabled={busy}>
             <div className="transaction-form-grid">
               <label>Category name<input required maxLength={60} value={category.name}
                 onChange={(event) => setCategory({ ...category, name: event.currentTarget.value })} /></label>
@@ -109,26 +116,32 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
               <label>Category colour<input type="color" value={category.color}
                 onChange={(event) => setCategory({ ...category, color: event.currentTarget.value })} /></label>
             </div>
+            </fieldset>
+            <div className="modal-actions">
             <button disabled={busy} type="submit">Save category</button>
-            {category.id !== null && <button disabled={busy} type="button" onClick={() => setCategory(newCategory)}>Cancel category edit</button>}
-          </form>
+            <button disabled={busy} type="button" onClick={() => { setCategory(newCategory); setEditor(null); setError(""); }}>Cancel category edit</button>
+            </div>
+          </form></Modal>}
         </div>
         <div>
           <h3>Merchant rules</h3>
+          <button className="add-transaction-button" type="button" disabled={busy || categories.length === 0} onClick={() => { setRule(newRule); setError(""); setEditor("rule"); }}>Add rule</button>
           {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list">
             {rules.map((item) => <li key={item.id}>
               <span>{item.pattern} → {categories.find((category) => category.id === item.categoryId)?.name ?? "Unknown category"}
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
               </span>
               <div>
-                <button disabled={busy} type="button" onClick={() => setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) })}>Edit rule {item.pattern}</button>
+                <button disabled={busy} type="button" onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setError(""); setEditor("rule"); }}>Edit rule {item.pattern}</button>
                 <button disabled={busy} type="button" onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete rule {item.pattern}</button>
               </div>
             </li>)}
             {rules.length === 0 && <li>No rules yet.</li>}
           </ul>}
+          {editor === "rule" && <Modal title={rule.id ? "Edit rule" : "Add rule"} busy={busy} onClose={() => { setEditor(null); setError(""); }}>
+          {error && <p role="alert">{error}</p>}
           <form className="transaction-form" onSubmit={(event) => void saveRule(event)}>
-            <h3>{rule.id ? "Edit rule" : "New rule"}</h3>
+            <fieldset disabled={busy}>
             <div className="transaction-form-grid">
               <label>Merchant pattern<input required maxLength={120} value={rule.pattern}
                 onChange={(event) => setRule({ ...rule, pattern: event.currentTarget.value })} /></label>
@@ -146,9 +159,12 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
               <label className="enabled-rule"><input type="checkbox" checked={rule.enabled}
                 onChange={(event) => setRule({ ...rule, enabled: event.currentTarget.checked })} />Rule enabled</label>
             </div>
+            </fieldset>
+            <div className="modal-actions">
             <button disabled={busy} type="submit">Save rule</button>
-            {rule.id !== null && <button disabled={busy} type="button" onClick={() => setRule(newRule)}>Cancel rule edit</button>}
-          </form>
+            <button disabled={busy} type="button" onClick={() => { setRule(newRule); setEditor(null); setError(""); }}>Cancel rule edit</button>
+            </div>
+          </form></Modal>}
         </div>
       </div>
       {pendingDelete && <div className="policy-note" role="group" aria-label="Confirm settings deletion">

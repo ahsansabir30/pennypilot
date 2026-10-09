@@ -21,6 +21,7 @@ import SavingsGoals from "./SavingsGoals";
 import PrivateData from "./PrivateData";
 import FinancialHighlights from "./FinancialHighlights";
 import { useWorkspacePage, workspacePages } from "./navigation";
+import Modal from "./Modal";
 
 const PAGE_SIZE = 10;
 
@@ -56,6 +57,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const showSettings = activePage === "categories";
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [transactionActionError, setTransactionActionError] = useState("");
+  const [categoryEditor, setCategoryEditor] = useState<{ transaction: Transaction; choice: string } | null>(null);
   const [formMessage, setFormMessage] = useState("");
   const [form, setForm] = useState({
     accountId: "",
@@ -213,6 +215,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
         transactionId,
         categoryId: categoryId ? Number(categoryId) : null,
       });
+      setCategoryEditor(null);
       refresh();
     } catch (error) {
       setTransactionActionError(errorMessage(error));
@@ -224,6 +227,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
     setBusy(true);
     try {
       await invoke("reset_transaction_category", { transactionId });
+      setCategoryEditor(null);
       refresh();
     } catch (error) {
       setTransactionActionError(errorMessage(error));
@@ -296,7 +300,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       ) : (
         <>
 
-          {(financeError || (activePage === "transactions" && transactionError)) && (
+          {!categoryEditor && (financeError || (activePage === "transactions" && transactionError)) && (
             <div className="dashboard-error" role="alert">
               <span>{financeError || transactionError}</span>
               <button className="text-button" onClick={refresh} type="button">Retry</button>
@@ -426,18 +430,9 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 </div>
 
                 {showForm && (
-                  <fieldset className="finance-record-controls" disabled={!currentFinance}>
+                  <Modal title="Add transaction" busy={busy} onClose={() => setShowForm(false)}>
+                  <fieldset className="finance-record-controls" disabled={busy || !currentFinance}>
                   <form className="transaction-form" onSubmit={createTransaction}>
-                    <div className="form-title">
-                      <h3>Add transaction</h3>
-                      <button
-                        aria-label="Close transaction form"
-                        className="close-form-button"
-                        disabled={busy}
-                        onClick={() => setShowForm(false)}
-                        type="button"
-                      >×</button>
-                    </div>
                     <div className="transaction-form-grid">
                       <label>
                         Type
@@ -526,12 +521,42 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                       <p className="policy-note">Transfers are recorded but excluded from income and spending totals.</p>
                     )}
                     {formMessage && <p className="form-message error" role="alert">{formMessage}</p>}
-                    <button className="add-transaction-button form-submit" disabled={busy} type="submit">
+                    <div className="modal-actions">
+                    <button className="add-transaction-button" disabled={busy} type="submit">
                       {busy ? "Saving…" : "Save transaction"}
                     </button>
+                    <button type="button" disabled={busy} onClick={() => setShowForm(false)}>Cancel transaction</button>
+                    </div>
                   </form>
-                  </fieldset>
+                  </fieldset></Modal>
                 )}
+                {categoryEditor && <Modal title="Edit transaction category" busy={busy} onClose={() => { setCategoryEditor(null); setTransactionActionError(""); }}>
+                  <p>{categoryEditor.transaction.merchant || categoryEditor.transaction.description}</p>
+                  {(transactionError || financeError) && <p role="alert">{transactionError || financeError}</p>}
+                  <form className="transaction-form" onSubmit={(event) => {
+                    event.preventDefault();
+                    if (categoryEditor.choice !== "automatic") void updateCategory(categoryEditor.transaction.id, categoryEditor.choice);
+                  }}>
+                    <label>Category
+                      <select className="category-select" disabled={busy || !currentFinance}
+                        aria-label={`Category for ${categoryEditor.transaction.merchant || categoryEditor.transaction.description}`}
+                        value={categoryEditor.choice} onChange={(event) => setCategoryEditor({ ...categoryEditor, choice: event.currentTarget.value })}>
+                        {categoryEditor.transaction.categorySource !== "manual" && <option value="automatic" disabled>{categoryEditor.transaction.categoryName ?? "Uncategorised"} (automatic)</option>}
+                        <option value="">Uncategorised</option>
+                        {finance.categories.filter((category) => category.categoryType === (categoryEditor.transaction.kind === "income" ? "income" : "expense"))
+                          .map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
+                      </select>
+                    </label>
+                    <p className="policy-note">Saving sets a manual choice. Use rules clears it.</p>
+                    <div className="modal-actions">
+                      <button className="add-transaction-button" type="submit" disabled={busy || !currentFinance || categoryEditor.choice === "automatic"}>Save category choice</button>
+                      {categoryEditor.transaction.categorySource === "manual" && <button type="button" disabled={busy || !currentFinance}
+                        aria-label={`Use rules for ${categoryEditor.transaction.merchant || categoryEditor.transaction.description}`}
+                        onClick={() => void clearManualCategory(categoryEditor.transaction.id)}>Use rules</button>}
+                      <button type="button" disabled={busy} onClick={() => { setCategoryEditor(null); setTransactionActionError(""); }}>Cancel category choice</button>
+                    </div>
+                  </form>
+                </Modal>}
 
                 <div className="transaction-filters">
                   <label className="search-field">
@@ -614,8 +639,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                           categories={finance.categories}
                           pendingDelete={pendingDelete === transaction.id}
                           busy={busy || !currentFinance}
-                          onCategoryChange={(categoryId) => void updateCategory(transaction.id, categoryId)}
-                          onUseRules={() => void clearManualCategory(transaction.id)}
+                          onEditCategory={() => { setTransactionActionError(""); setCategoryEditor({ transaction, choice: transaction.categorySource === "manual" ? String(transaction.categoryId ?? "") : "automatic" }); }}
                           onDelete={() => setPendingDelete(transaction.id)}
                           onCancelDelete={() => setPendingDelete(null)}
                           onConfirmDelete={() => void deleteTransaction(transaction.id)}
@@ -705,8 +729,7 @@ function TransactionRow({
   categories,
   pendingDelete,
   busy,
-  onCategoryChange,
-  onUseRules,
+  onEditCategory,
   onDelete,
   onCancelDelete,
   onConfirmDelete,
@@ -715,17 +738,11 @@ function TransactionRow({
   categories: FinanceData["categories"];
   pendingDelete: boolean;
   busy: boolean;
-  onCategoryChange: (categoryId: string) => void;
-  onUseRules: () => void;
+  onEditCategory: () => void;
   onDelete: () => void;
   onCancelDelete: () => void;
   onConfirmDelete: () => void;
 }) {
-  const eligibleCategories = categories.filter((category) =>
-    transaction.kind === "income"
-      ? category.categoryType === "income"
-      : category.categoryType === "expense",
-  );
   const signedAmount = transaction.kind === "expense"
     ? -transaction.amountPence
     : transaction.amountPence;
@@ -748,21 +765,14 @@ function TransactionRow({
           <span className="transfer-category">Excluded</span>
         ) : (
           <div className="category-control">
-          <select
+          <button type="button"
             disabled={busy}
-            aria-label={`Category for ${displayName}`}
+            aria-label={`Edit category for ${displayName}`}
             className="category-select"
-            value={transaction.categorySource === "manual" ? transaction.categoryId ?? "" : "automatic"}
-            onChange={(event) => onCategoryChange(event.currentTarget.value)}
+            onClick={onEditCategory}
           >
-            {transaction.categorySource !== "manual" && <option value="automatic" disabled>
-              {transaction.categoryName ?? "Uncategorised"}
-            </option>}
-            <option value="">Uncategorised</option>
-            {eligibleCategories.map((category) => (
-              <option key={category.id} value={category.id}>{category.name}</option>
-            ))}
-          </select>
+            {transaction.categoryName ?? "Uncategorised"} <span aria-hidden="true">⌄</span>
+          </button>
           <div className="category-control-meta">
             <details className="category-details">
               <summary>
@@ -772,9 +782,6 @@ function TransactionRow({
               </summary>
               <small className="category-explanation">{transaction.categoryExplanation}</small>
             </details>
-            {transaction.categorySource === "manual" && <button type="button"
-              className="use-rules-button" disabled={busy} onClick={onUseRules}
-              aria-label={`Use rules for ${displayName}`}>Use rules</button>}
           </div>
           </div>
         )}
