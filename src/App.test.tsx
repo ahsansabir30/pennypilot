@@ -11,10 +11,10 @@ const invokeMock = vi.mocked(invoke);
 const emptyFinanceData = {
   summary: {
     month: new Date().toISOString().slice(0, 7),
-    incomePence: 0,
-    expensePence: 0,
-    refundPence: 0,
-    netCashFlowPence: 0,
+    incomePence: "0",
+    expensePence: "0",
+    refundPence: "0",
+    netCashFlowPence: "0",
   },
   history: [],
   categorySpending: [],

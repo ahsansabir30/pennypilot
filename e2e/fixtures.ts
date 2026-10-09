@@ -14,15 +14,16 @@ declare global {
   }
 }
 
-export const test = base.extend<{ startStatus: StartStatus; blockedCommand: string | null }>({
+export const test = base.extend<{ startStatus: StartStatus; blockedCommand: string | null; largeAggregates: boolean }>({
   startStatus: ["unlocked", { option: true }],
   blockedCommand: [null, { option: true }],
-  page: async ({ page, startStatus, blockedCommand }, runPage) => {
+  largeAggregates: [false, { option: true }],
+  page: async ({ page, startStatus, blockedCommand, largeAggregates }, runPage) => {
     const consoleErrors: string[] = [];
     page.on("pageerror", (error) => consoleErrors.push(error.message));
     page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(message.text()); });
     await page.clock.install({ time: new Date("2024-02-15T12:00:00Z") });
-    await page.addInitScript(({ initialStatus, blockedCommand }: { initialStatus: StartStatus; blockedCommand: string | null }) => {
+    await page.addInitScript(({ initialStatus, blockedCommand, largeAggregates }: { initialStatus: StartStatus; blockedCommand: string | null; largeAggregates: boolean }) => {
       let status = initialStatus;
       let workspacePassword = "fictional workspace passphrase";
       let categories: Category[] = [
@@ -39,10 +40,17 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
         categorySource: index === 3 ? "transfer" : "manual", categoryExplanation: "Manual choice preserved.",
       }));
       let rules: CategoryRule[] = [];
+      if (largeAggregates) {
+        const template = transactions[0];
+        transactions = Array.from({ length: 90_073 }, (_, index) => ({
+          ...template, id: index + 1, amountPence: index === 90_072 ? 1 : 99_999_999_999,
+          description: "Fictional aggregate fixture", merchant: "Fictional aggregate merchant",
+        }));
+      }
       let goals: SavingsGoal[] = [];
       let budgets: { month: string; categoryId: number; limitPence: number }[] = [];
       let comparisonMode = "same_day";
-      let nextTransactionId = 17;
+      let nextTransactionId = transactions.length + 1;
       let nextCategoryId = 3;
       let nextRuleId = 1;
       let nextGoalId = 1;
@@ -112,9 +120,9 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
       }
       function summary(month: string) {
         const rows = selected({ month });
-        const sum = (kind: Transaction["kind"]) => rows.filter((row) => row.kind === kind).reduce((total, row) => total + row.amountPence, 0);
+        const sum = (kind: Transaction["kind"]) => rows.filter((row) => row.kind === kind).reduce((total, row) => total + BigInt(row.amountPence), 0n);
         const incomePence = sum("income"), refundPence = sum("refund"), expensePence = sum("expense") - refundPence;
-        return { month, incomePence, expensePence, refundPence, netCashFlowPence: incomePence - expensePence };
+        return { month, incomePence: String(incomePence), expensePence: String(expensePence), refundPence: String(refundPence), netCashFlowPence: String(incomePence - expensePence) };
       }
       function snapshot(): Snapshot {
         return structuredClone({ categories, transactions, rules, goals, budgets, comparisonMode });
@@ -142,20 +150,20 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
         switch (command) {
           case "list_finance_data": {
             const month = text(args, "month");
-            const spending = new Map<number | null, number>();
+            const spending = new Map<number | null, bigint>();
             for (const row of selected({ month })) {
-              if (row.kind === "expense" || row.kind === "refund") spending.set(row.categoryId, (spending.get(row.categoryId) ?? 0) + row.amountPence * (row.kind === "refund" ? -1 : 1));
+              if (row.kind === "expense" || row.kind === "refund") spending.set(row.categoryId, (spending.get(row.categoryId) ?? 0n) + BigInt(row.amountPence) * (row.kind === "refund" ? -1n : 1n));
             }
             const [year, number] = month.split("-").map(Number);
             const result: FinanceData = {
               summary: summary(month),
               history: Array.from({ length: 6 }, (_, index) => {
                 const date = new Date(year, number - 6 + index, 15);
-                return summary(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`);
-              }),
+                return summary(`${String(date.getFullYear()).padStart(4, "0")}-${String(date.getMonth() + 1).padStart(2, "0")}`);
+              }).filter((item) => item.month >= "1000-01"),
               categorySpending: Array.from(spending, ([categoryId, amountPence]) => {
                 const category = categories.find((item) => item.id === categoryId);
-                return { categoryId, categoryName: category?.name ?? "Uncategorised", color: category?.color ?? "#66746b", amountPence };
+                return { categoryId, categoryName: category?.name ?? "Uncategorised", color: category?.color ?? "#66746b", amountPence: String(amountPence) };
               }),
               accounts: [{ id: 1, name: "Fictional account", currencyCode: "GBP" }], categories: structuredClone(categories),
             };
@@ -208,11 +216,11 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
             const monthEnd = `${month}-${String(end.getDate()).padStart(2, "0")}`;
             const periodEnd = month > asOf.slice(0, 7) ? null : month === asOf.slice(0, 7) ? asOf : monthEnd;
             const result: BudgetData = {
-              month, asOf, periodEnd, previousMonth: "2024-01", previousEnd: null, comparisonMode,
+              month, asOf, periodEnd, previousMonth: month === "1000-01" ? null : "2024-01", previousEnd: null, comparisonMode,
               rows: budgets.filter((row) => row.month === month).map((row) => {
                 const recorded = periodEnd ? selected({ from: `${month}-01`, to: periodEnd, categoryId: row.categoryId }).filter((item) => item.kind === "expense" || item.kind === "refund") : [];
                 return { ...row, categoryName: categories.find((item) => item.id === row.categoryId)?.name ?? "Uncategorised",
-                  usedPence: recorded.reduce((total, item) => total + item.amountPence * (item.kind === "refund" ? -1 : 1), 0),
+                  usedPence: String(recorded.reduce((total, item) => total + BigInt(item.amountPence) * (item.kind === "refund" ? -1n : 1n), 0n)),
                   previousUsedPence: null, recordCount: recorded.length, previousRecordCount: 0 };
               }),
             };
@@ -279,7 +287,7 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
         }
       }
       Object.defineProperty(window, "__TAURI_INTERNALS__", { value: { invoke }, configurable: true });
-    }, { initialStatus: startStatus, blockedCommand });
+    }, { initialStatus: startStatus, blockedCommand, largeAggregates });
     await runPage(page);
     expect(consoleErrors, "Normal app flows must not emit console errors").toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), "No horizontal page overflow").toBe(true);

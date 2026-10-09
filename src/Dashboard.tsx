@@ -3,7 +3,9 @@ import type { FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import {
   formatPence,
+  absolutePence,
   localIsoDate,
+  penceRatio,
   poundsToPence,
 } from "./finance";
 import type {
@@ -251,14 +253,10 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   }
 
   const monthly = finance?.summary;
-  const historyMaximum = Math.max(
-    1,
-    ...(finance?.history.flatMap((item) => [item.incomePence, item.expensePence]) ?? []),
-  );
-  const categoryMaximum = Math.max(
-    1,
-    ...(finance?.categorySpending.map((item) => Math.abs(item.amountPence)) ?? []),
-  );
+  const historyMaximum = (finance?.history.flatMap((item) => [BigInt(item.incomePence), BigInt(item.expensePence)]) ?? [])
+    .reduce((maximum, amount) => amount > maximum ? amount : maximum, 1n);
+  const categoryMaximum = (finance?.categorySpending.map((item) => absolutePence(BigInt(item.amountPence))) ?? [])
+    .reduce((maximum, amount) => amount > maximum ? amount : maximum, 1n);
 
   return (
     <main className="app-shell finance-shell">
@@ -331,7 +329,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   label="Net cash flow"
                   amount={monthly.netCashFlowPence}
                   description="Income less net spending"
-                  tone={monthly.netCashFlowPence < 0 ? "negative" : "net"}
+                  tone={BigInt(monthly.netCashFlowPence) < 0n ? "negative" : "net"}
                 />
               </section>
               <p className="policy-note">Net cash flow is not an account balance.</p>
@@ -364,18 +362,19 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                       <i className="legend-spending" /> Spending
                     </span>
                   </div>
-                  <div className="trend-chart" role="img" aria-label="Six-month income and spending trend">
+                  {finance.history.length < 6 && <p className="policy-note">History before January 1000 is unavailable; only supported months are shown.</p>}
+                  <div className="trend-chart" role="img" aria-label={finance.history.length < 6 ? "Available income and spending trend" : "Six-month income and spending trend"}>
                     {finance.history.map((item) => (
                       <div className="trend-month" key={item.month}>
                         <div className="trend-bars">
                           <div
                             className="trend-bar income-bar"
-                            style={{ height: `${Math.max(2, item.incomePence / historyMaximum * 100)}%` }}
+                            style={{ height: `${Math.max(2, penceRatio(BigInt(item.incomePence), historyMaximum) * 100)}%` }}
                             title={`Income ${formatPence(item.incomePence)}`}
                           />
                           <div
                             className="trend-bar spending-bar"
-                            style={{ height: `${Math.max(2, item.expensePence / historyMaximum * 100)}%` }}
+                            style={{ height: `${Math.max(2, penceRatio(BigInt(item.expensePence), historyMaximum) * 100)}%` }}
                             title={`Net spending ${formatPence(item.expensePence)}`}
                           />
                         </div>
@@ -415,7 +414,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                             <span
                               style={{
                                 backgroundColor: item.color,
-                                width: `${Math.max(2, Math.abs(item.amountPence) / categoryMaximum * 100)}%`,
+                                width: `${Math.max(2, penceRatio(absolutePence(BigInt(item.amountPence)), categoryMaximum) * 100)}%`,
                               }}
                             />
                           </div>
@@ -695,7 +694,7 @@ function SummaryCard({
   tone,
 }: {
   label: string;
-  amount: number;
+  amount: string;
   description: string;
   tone: string;
 }) {

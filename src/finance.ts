@@ -15,17 +15,17 @@ export type Category = {
 
 export type MonthlySummary = {
   month: string;
-  incomePence: number;
-  expensePence: number;
-  refundPence: number;
-  netCashFlowPence: number;
+  incomePence: string;
+  expensePence: string;
+  refundPence: string;
+  netCashFlowPence: string;
 };
 
 export type CategorySpending = {
   categoryId: number | null;
   categoryName: string;
   color: string;
-  amountPence: number;
+  amountPence: string;
 };
 
 export type FinanceData = {
@@ -68,12 +68,12 @@ export type TransactionPage = {
 };
 
 export type BudgetRow = {
-  categoryId: number; categoryName: string; limitPence: number; usedPence: number;
-  previousUsedPence: number | null; recordCount: number; previousRecordCount: number;
+  categoryId: number; categoryName: string; limitPence: number; usedPence: string;
+  previousUsedPence: string | null; recordCount: number; previousRecordCount: number;
 };
 
 export type BudgetData = {
-  month: string; asOf: string; periodEnd: string | null; previousMonth: string;
+  month: string; asOf: string; periodEnd: string | null; previousMonth: string | null;
   previousEnd: string | null; comparisonMode: string; rows: BudgetRow[];
 };
 
@@ -90,11 +90,22 @@ export function poundsToPence(value: string): number | null {
   return pounds * 100 + pence;
 }
 
-export function formatPence(amountPence: number): string {
-  return new Intl.NumberFormat("en-GB", {
-    style: "currency",
-    currency: "GBP",
-  }).format(amountPence / 100);
+export function absolutePence(pence: bigint): bigint {
+  return pence < 0n ? -pence : pence;
+}
+
+// Only visual proportions use floating point; currency arithmetic stays exact.
+export function penceRatio(pence: bigint, total: bigint): number {
+  return Number(pence) / Number(total);
+}
+
+export function formatPence(amountPence: number | string | bigint): string {
+  if (typeof amountPence === "number" && !Number.isSafeInteger(amountPence)) {
+    throw new RangeError("Currency pence must be a safe integer or an exact decimal string.");
+  }
+  const pence = BigInt(amountPence);
+  const magnitude = absolutePence(pence);
+  return `${pence < 0n ? "-" : ""}£${new Intl.NumberFormat("en-GB").format(magnitude / 100n)}.${String(magnitude % 100n).padStart(2, "0")}`;
 }
 
 export function localIsoDate(date = new Date()): string {

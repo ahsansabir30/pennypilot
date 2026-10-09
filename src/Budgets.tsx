@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { financeError, formatPence, localIsoDate, poundsToPence } from "./finance";
+import { financeError, formatPence, localIsoDate, penceRatio, poundsToPence } from "./finance";
 import type { BudgetData, Category } from "./finance";
 
 export default function Budgets({ month, categories, refreshKey, onChanged, headingRef }: {
@@ -61,6 +61,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
         ? `current period ${month}-01 through ${current.periodEnd}`
         : "future month; no elapsed period"}.
         {current.previousEnd && ` Comparison: ${current.previousMonth}-01 through ${current.previousEnd}.`}
+        {current.previousMonth === null && " Previous period is outside the supported date range; no comparison available."}
         {" "}Missing records are not treated as evidence of no spending. No projections.</p></details>
       <label className="management-preference">Comparison period
         <select aria-label="Comparison period" disabled={busy} value={current.comparisonMode}
@@ -72,21 +73,23 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       {current.rows.length === 0 && <p>No budgets this month.</p>}
       <ul className="management-cards">
         {current.rows.map((row) => {
-          const percent = Math.max(0, row.usedPence) / row.limitPence * 100;
-          const exceeded = row.usedPence > row.limitPence;
-          const status = exceeded ? "Exceeded budget" : row.recordCount === 0 ? "No records yet" : percent >= 80 ? "Approaching limit" : "Within limit";
+          const used = BigInt(row.usedPence);
+          const limit = BigInt(row.limitPence);
+          const percent = penceRatio(used > 0n ? used : 0n, limit) * 100;
+          const exceeded = used > limit;
+          const status = exceeded ? "Exceeded budget" : row.recordCount === 0 ? "No records yet" : used * 100n >= limit * 80n ? "Approaching limit" : "Within limit";
           return <li key={row.categoryId}>
             <h3>{row.categoryName}</h3>
             <p>{formatPence(row.usedPence)} used / {formatPence(row.limitPence)} limit</p>
             <progress className={exceeded ? "over" : undefined} aria-label={`${row.categoryName} budget progress`} value={Math.min(100, percent)} max={100} />
             <p className={exceeded ? "budget-exceeded" : ""}>{status} · {(Math.round(percent * 10) / 10).toFixed(1)}%</p>
-            <p>{exceeded ? `${formatPence(row.usedPence - row.limitPence)} over limit.`
-              : `${formatPence(row.limitPence - row.usedPence)} remaining allowance.`}</p>
+            <p>{exceeded ? `${formatPence(used - limit)} over limit.`
+              : `${formatPence(limit - used)} remaining allowance.`}</p>
             <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">{row.recordCount} expense/refund records in this period.
-              {row.usedPence < 0 && " Refunds exceed expenses; the progress bar is floored at zero, not the recorded used amount."}</p>
+              {used < 0n && " Refunds exceed expenses; the progress bar is floored at zero, not the recorded used amount."}</p>
             <p className="policy-note">{row.previousUsedPence === null
               ? "No comparable category records in the previous period; no change inferred."
-              : `Previous recorded net spending: ${formatPence(row.previousUsedPence)} from ${row.previousRecordCount} records.${row.recordCount > 0 ? ` Recorded change: ${formatPence(row.usedPence - row.previousUsedPence)}.` : " No current records for a change comparison."}`}</p>
+              : `Previous recorded net spending: ${formatPence(row.previousUsedPence)} from ${row.previousRecordCount} records.${row.recordCount > 0 ? ` Recorded change: ${formatPence(used - BigInt(row.previousUsedPence))}.` : " No current records for a change comparison."}`}</p>
             {row.recordCount === 0 && <p className="policy-note">No current category records; zero recorded usage is not evidence of zero actual spending.</p>}</details>
             <button type="button" disabled={busy} onClick={() => setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) })}>Edit budget for {row.categoryName}</button>
             <button type="button" disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove budget for {row.categoryName}</button>

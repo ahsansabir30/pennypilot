@@ -14,7 +14,9 @@ struct BudgetRow {
     category_id: i64,
     category_name: String,
     limit_pence: i64,
+    #[serde(serialize_with = "serialize_pence")]
     used_pence: i64,
+    #[serde(serialize_with = "serialize_optional_pence")]
     previous_used_pence: Option<i64>,
     record_count: i64,
     previous_record_count: i64,
@@ -26,10 +28,20 @@ pub(crate) struct BudgetData {
     month: String,
     as_of: String,
     period_end: Option<String>,
-    previous_month: String,
+    previous_month: Option<String>,
     previous_end: Option<String>,
     comparison_mode: String,
     rows: Vec<BudgetRow>,
+}
+
+fn serialize_optional_pence<S: serde::Serializer>(
+    pence: &Option<i64>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match pence {
+        Some(value) => serializer.serialize_some(&value.to_string()),
+        None => serializer.serialize_none(),
+    }
 }
 
 pub(super) fn migrate(connection: &Connection) -> WorkspaceResult<()> {
@@ -126,13 +138,13 @@ fn data(connection: &Connection, month: &str, as_of: &str) -> WorkspaceResult<Bu
         )
         .map_err(|_| WorkspaceError::Storage)?;
     let period_end = (as_of >= format!("{month}-01").as_str()).then(|| as_of.min(&last).to_owned());
-    let previous_end = match &period_end {
-        None => None,
-        Some(end) if mode == "same_day" && end != &last => {
-            let prior_last = month_end(&previous_month)?;
+    let previous_end = match (&period_end, &previous_month) {
+        (Some(end), Some(previous_month)) if mode == "same_day" && end != &last => {
+            let prior_last = month_end(previous_month)?;
             Some(format!("{}-{}", previous_month, &end[8..10]).min(prior_last))
         }
-        Some(_) => Some(month_end(&previous_month)?),
+        (Some(_), Some(previous_month)) => Some(month_end(previous_month)?),
+        _ => None,
     };
     let mut statement = connection
         .prepare(
@@ -155,12 +167,15 @@ fn data(connection: &Connection, month: &str, as_of: &str) -> WorkspaceResult<Bu
     for (category_id, category_name, limit_pence) in budgets {
         let (used_pence, record_count) =
             usage(connection, category_id, month, period_end.as_deref())?;
-        let (prior, count) = usage(
-            connection,
-            category_id,
-            &previous_month,
-            previous_end.as_deref(),
-        )?;
+        let (prior, count) = match &previous_month {
+            Some(previous_month) => usage(
+                connection,
+                category_id,
+                previous_month,
+                previous_end.as_deref(),
+            )?,
+            None => (0, 0),
+        };
         rows.push(BudgetRow {
             category_id,
             category_name,
@@ -279,6 +294,55 @@ mod tests {
     }
 
     #[test]
+    fn earliest_month_has_no_previous_period_in_either_comparison_mode() {
+        let connection = finance_db();
+        let id = setup(&connection, "1000-01");
+        record(&connection, id, "1000-01-01", "expense", 123);
+        for mode in ["same_day", "full_month"] {
+            preference(&connection, mode).expect("comparison mode");
+            for as_of in ["1000-01-15", "1000-02-01", "9999-12-31"] {
+                let result = data(&connection, "1000-01", as_of).expect("earliest budget");
+                assert!(result.previous_month.is_none());
+                assert!(result.previous_end.is_none());
+                assert_eq!(result.rows[0].used_pence, 123);
+                assert_eq!(result.rows[0].previous_used_pence, None);
+                assert_eq!(result.rows[0].previous_record_count, 0);
+            }
+            setup(&connection, "1000-02");
+            let result = data(&connection, "1000-02", "1000-02-15").expect("next month");
+            assert_eq!(result.previous_month.as_deref(), Some("1000-01"));
+            assert_eq!(result.rows[0].previous_used_pence, Some(123));
+        }
+        setup(&connection, "9999-12");
+        assert!(data(&connection, "9999-12", "9999-12-31").is_ok());
+    }
+
+    #[test]
+    fn budget_usage_and_comparison_serialize_exact_large_totals() {
+        let connection = finance_db();
+        super::super::tests::large_aggregate_fixture(&connection);
+        setup(&connection, "2024-02");
+        setup(&connection, "2024-03");
+        let total = "9007199999909929";
+        let result =
+            serde_json::to_value(data(&connection, "2024-02", "2024-03-31").expect("usage"))
+                .expect("IPC");
+        assert_eq!(result["rows"][0]["usedPence"], total);
+        assert!(result["rows"][0]["previousUsedPence"].is_null());
+        let result =
+            serde_json::to_value(data(&connection, "2024-03", "2024-03-31").expect("comparison"))
+                .expect("IPC");
+        assert_eq!(result["rows"][0]["previousUsedPence"], total);
+        connection
+            .execute("UPDATE transactions SET kind='refund'", [])
+            .expect("refund fixture");
+        let result =
+            serde_json::to_value(data(&connection, "2024-02", "2024-03-31").expect("refund usage"))
+                .expect("IPC");
+        assert_eq!(result["rows"][0]["usedPence"], "-9007199999909929");
+    }
+
+    #[test]
     fn leap_year_and_calendar_boundaries_use_source_dates() {
         let connection = finance_db();
         let id = setup(&connection, "2024-02");
@@ -300,7 +364,7 @@ mod tests {
             data(&connection, "2024-01", "2024-02-01")
                 .expect("year boundary")
                 .previous_month,
-            "2023-12"
+            Some("2023-12".to_owned())
         );
     }
 

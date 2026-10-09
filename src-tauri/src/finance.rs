@@ -88,10 +88,18 @@ pub(super) struct TransactionPage {
 #[serde(rename_all = "camelCase")]
 pub(super) struct MonthlySummary {
     month: String,
+    #[serde(serialize_with = "serialize_pence")]
     income_pence: i64,
+    #[serde(serialize_with = "serialize_pence")]
     expense_pence: i64,
+    #[serde(serialize_with = "serialize_pence")]
     refund_pence: i64,
+    #[serde(serialize_with = "serialize_pence")]
     net_cash_flow_pence: i64,
+}
+
+fn serialize_pence<S: serde::Serializer>(pence: &i64, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&pence.to_string())
 }
 
 #[derive(Debug, Serialize)]
@@ -100,6 +108,7 @@ pub(super) struct CategorySpending {
     category_id: Option<i64>,
     category_name: String,
     color: String,
+    #[serde(serialize_with = "serialize_pence")]
     amount_pence: i64,
 }
 
@@ -235,7 +244,7 @@ fn validate_month(month: &str) -> WorkspaceResult<()> {
     validate_iso_date(&format!("{month}-01"))
 }
 
-fn month_offset(month: &str, offset: i32) -> WorkspaceResult<String> {
+fn month_offset(month: &str, offset: i32) -> WorkspaceResult<Option<String>> {
     validate_month(month)?;
     let year = month[0..4]
         .parse::<i32>()
@@ -243,11 +252,13 @@ fn month_offset(month: &str, offset: i32) -> WorkspaceResult<String> {
     let month_number = month[5..7]
         .parse::<i32>()
         .map_err(|_| WorkspaceError::InvalidFinancialInput)?;
-    let index = year * 12 + month_number - 1 + offset;
-    if index < 1000 * 12 {
-        return Err(WorkspaceError::InvalidFinancialInput);
+    let index = (year * 12 + month_number - 1)
+        .checked_add(offset)
+        .ok_or(WorkspaceError::InvalidFinancialInput)?;
+    if !(1000 * 12..10000 * 12).contains(&index) {
+        return Ok(None);
     }
-    Ok(format!("{:04}-{:02}", index / 12, index % 12 + 1))
+    Ok(Some(format!("{:04}-{:02}", index / 12, index % 12 + 1)))
 }
 
 fn normalize_merchant(merchant: Option<&str>) -> Option<String> {
@@ -649,7 +660,9 @@ fn monthly_summary(connection: &Connection, month: &str) -> WorkspaceResult<Mont
         income_pence,
         expense_pence,
         refund_pence,
-        net_cash_flow_pence: income_pence - expense_pence,
+        net_cash_flow_pence: income_pence
+            .checked_sub(expense_pence)
+            .ok_or(WorkspaceError::Storage)?,
     })
 }
 
@@ -658,7 +671,9 @@ fn dashboard_data(connection: &Connection, month: &str) -> WorkspaceResult<Dashb
     let summary = monthly_summary(connection, month)?;
     let mut history = Vec::with_capacity(6);
     for offset in (-5..=0).rev() {
-        history.push(monthly_summary(connection, &month_offset(month, offset)?)?);
+        if let Some(history_month) = month_offset(month, offset)? {
+            history.push(monthly_summary(connection, &history_month)?);
+        }
     }
     let mut category_statement = connection
         .prepare(
@@ -847,6 +862,91 @@ mod tests {
     }
 
     #[test]
+    fn dashboard_history_preserves_supported_date_boundaries() {
+        let connection = finance_db();
+        assert!(validate_iso_date("1000-01-01").is_ok());
+        assert!(validate_iso_date("9999-12-31").is_ok());
+        assert!(validate_iso_date("0999-12-31").is_err());
+        add_test_transaction(&connection, "expense", "1000-01-01", 123, "Groceries");
+        for month in 1..=6 {
+            let dashboard = dashboard_data(&connection, &format!("1000-{month:02}"))
+                .expect("boundary dashboard");
+            assert_eq!(dashboard.history.len(), month);
+            assert_eq!(
+                dashboard.history.last().expect("earliest month").month,
+                "1000-01"
+            );
+            assert_eq!(
+                dashboard
+                    .history
+                    .last()
+                    .expect("recorded spending")
+                    .expense_pence,
+                123
+            );
+        }
+        let dashboard = dashboard_data(&connection, "9999-12").expect("upper boundary");
+        assert_eq!(dashboard.history.len(), 6);
+        assert_eq!(dashboard.history[0].month, "9999-12");
+        assert_eq!(dashboard.summary.income_pence, 0);
+    }
+
+    pub(super) fn large_aggregate_fixture(connection: &Connection) -> i64 {
+        let category = connection
+            .query_row(
+                "SELECT id FROM categories WHERE name='Groceries'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("category");
+        connection.execute(
+            "WITH RECURSIVE records(n) AS (SELECT 1 UNION ALL SELECT n+1 FROM records WHERE n<90072)
+             INSERT INTO transactions(account_id,category_id,amount_pence,kind,transaction_date,description)
+             SELECT 1,?1,99999999999,'expense','2024-02-01','Fictional aggregate fixture' FROM records",
+            [category],
+        ).expect("large valid aggregate");
+        add_test_transaction(connection, "expense", "2024-02-01", 1, "Groceries");
+        category
+    }
+
+    #[test]
+    fn aggregate_ipc_serialization_preserves_pence_beyond_javascript_safe_integers() {
+        let connection = finance_db();
+        large_aggregate_fixture(&connection);
+        let total = 9_007_199_999_909_929_i64;
+        let dashboard = dashboard_data(&connection, "2024-02").expect("large totals");
+        assert_eq!(dashboard.summary.expense_pence, total);
+        let json = serde_json::to_value(&dashboard).expect("IPC serialization");
+        assert_eq!(json["summary"]["expensePence"], total.to_string());
+        assert_eq!(json["summary"]["incomePence"], "0");
+        assert_eq!(json["summary"]["refundPence"], "0");
+        assert_eq!(json["summary"]["netCashFlowPence"], (-total).to_string());
+        assert_eq!(json["history"][0]["expensePence"], total.to_string());
+        assert_eq!(
+            json["categorySpending"][0]["amountPence"],
+            total.to_string()
+        );
+        connection
+            .execute("UPDATE transactions SET kind='refund'", [])
+            .expect("refund fixture");
+        let json =
+            serde_json::to_value(dashboard_data(&connection, "2024-02").expect("large refunds"))
+                .expect("refund IPC");
+        assert_eq!(json["summary"]["refundPence"], total.to_string());
+        assert_eq!(json["summary"]["expensePence"], (-total).to_string());
+        assert_eq!(json["summary"]["netCashFlowPence"], total.to_string());
+        assert_eq!(
+            json["categorySpending"][0]["amountPence"],
+            (-total).to_string()
+        );
+        connection.execute("UPDATE transactions SET kind='income',category_id=(SELECT id FROM categories WHERE name='Salary')", []).expect("income fixture");
+        let json =
+            serde_json::to_value(dashboard_data(&connection, "2024-02").expect("large income"))
+                .expect("income IPC");
+        assert_eq!(json["summary"]["incomePence"], total.to_string());
+    }
+
+    #[test]
     fn category_totals_apply_refunds_to_their_expense_category() {
         let connection = finance_db();
         add_test_transaction(&connection, "expense", "2025-12-03", 8_000, "Groceries");
@@ -932,9 +1032,14 @@ mod tests {
     fn month_ranges_cross_year_boundaries_and_validate_calendar_dates() {
         assert_eq!(
             month_offset("2026-01", -1).expect("previous month"),
-            "2025-12"
+            Some("2025-12".to_owned())
         );
-        assert_eq!(month_offset("2026-01", 0).expect("same month"), "2026-01");
+        assert_eq!(
+            month_offset("2026-01", 0).expect("same month"),
+            Some("2026-01".to_owned())
+        );
+        assert_eq!(month_offset("1000-01", -1).expect("lower boundary"), None);
+        assert_eq!(month_offset("9999-12", 1).expect("upper boundary"), None);
         assert!(validate_iso_date("2024-02-29").is_ok());
         assert!(validate_iso_date("2025-02-29").is_err());
         assert!(validate_iso_date("2026-04-31").is_err());

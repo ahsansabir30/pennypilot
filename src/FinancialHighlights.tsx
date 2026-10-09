@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { financeError, formatPence, localIsoDate } from "./finance";
+import { absolutePence, financeError, formatPence, localIsoDate, penceRatio } from "./finance";
 import type { BudgetData, SavingsGoal } from "./finance";
 
 export default function FinancialHighlights({ month, refreshKey, onBudgets, onGoals }: {
@@ -33,9 +33,11 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
   const budgetError = budgetState?.key === budgetKey ? budgetState.error : "";
   const goalError = goalState?.key === goalKey ? goalState.error : "";
   const goals = goalState?.key === goalKey ? goalState.data : null;
-  const previewBudgets = current?.rows.slice().sort((left, right) =>
-    right.usedPence / right.limitPence - left.usedPence / left.limitPence || left.categoryId - right.categoryId).slice(0, 3) ?? [];
-  const overLimitCount = current?.rows.filter((row) => row.usedPence > row.limitPence).length ?? 0;
+  const previewBudgets = current?.rows.slice().sort((left, right) => {
+    const difference = BigInt(right.usedPence) * BigInt(left.limitPence) - BigInt(left.usedPence) * BigInt(right.limitPence);
+    return difference > 0n ? 1 : difference < 0n ? -1 : left.categoryId - right.categoryId;
+  }).slice(0, 3) ?? [];
+  const overLimitCount = current?.rows.filter((row) => BigInt(row.usedPence) > BigInt(row.limitPence)).length ?? 0;
   return <section className="planning-grid" aria-label="Budget and savings overview">
     <article className="panel planning-panel" aria-labelledby="budget-preview-title">
       <div className="panel-heading">
@@ -52,13 +54,14 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
           <p className="preview-caption">{current.rows.length} budgeted {current.rows.length === 1 ? "category" : "categories"} · {overLimitCount} over limit · {current.periodEnd ? `Recorded through ${current.periodEnd}` : "Future month; no elapsed spending period"}</p>
           <ul className="preview-list">
             {previewBudgets.map((row) => {
-              const over = row.usedPence > row.limitPence;
-              const percent = Math.max(0, row.usedPence) / row.limitPence * 100;
+              const used = BigInt(row.usedPence), limit = BigInt(row.limitPence);
+              const over = used > limit;
+              const percent = penceRatio(used > 0n ? used : 0n, limit) * 100;
               return <li key={row.categoryId}>
                 <div className="preview-row"><strong>{row.categoryName}</strong><span className={`plan-status ${over ? "over" : ""}`}>
-                  {over ? "Over limit" : row.recordCount === 0 ? "No records yet" : percent >= 80 ? "Near limit" : "Within limit"}</span></div>
+                  {over ? "Over limit" : row.recordCount === 0 ? "No records yet" : used * 100n >= limit * 80n ? "Near limit" : "Within limit"}</span></div>
                 <div className="preview-row preview-amount"><span>{formatPence(row.usedPence)} of {formatPence(row.limitPence)}</span>
-                  <strong>{formatPence(Math.abs(row.limitPence - row.usedPence))} {over ? "over" : "left"}</strong></div>
+                  <strong>{formatPence(absolutePence(limit - used))} {over ? "over" : "left"}</strong></div>
                 <progress aria-label={`${row.categoryName} allowance used`} max={100} value={Math.min(100, percent)} className={over ? "over" : ""} />
               </li>;
             })}

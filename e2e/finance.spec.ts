@@ -18,6 +18,51 @@ async function addExpense(page: Page, merchant = "Fictional Coffee Shop", amount
   await expect(page.getByText(merchant, { exact: true })).toBeVisible();
 }
 
+test("earliest accepted source date keeps dashboard and budgets usable without inferred comparison", async ({ page }) => {
+  await home(page);
+  await page.getByRole("button", { name: "Add transaction", exact: true }).click();
+  await page.getByLabel("Amount (GBP)", { exact: true }).fill("1.23");
+  await page.getByLabel("Transaction date", { exact: true }).fill("1000-01-01");
+  await page.getByLabel("Category", { exact: true }).selectOption("1");
+  await page.getByLabel("Description", { exact: true }).fill("Fictional earliest expense");
+  await page.getByRole("button", { name: "Save transaction", exact: true }).click();
+  await expect(page.getByRole("region", { name: "1000-01 financial summary" })).toContainText("£1.23");
+  await expect(page.getByText(/History before January 1000 is unavailable/)).toBeVisible();
+  await expect(page.getByRole("img", { name: "Available income and spending trend", exact: true })).toBeVisible();
+  await expect(page.locator(".trend-month")).toHaveCount(1);
+  await page.getByRole("button", { name: "Set your first budget", exact: true }).click();
+  await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
+  await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("10.00");
+  await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
+  await expect(page.getByText("£1.23 used / £10.00 limit", { exact: true })).toBeVisible();
+  await page.getByText("Period details", { exact: true }).click();
+  await expect(page.getByText(/Previous period is outside the supported date range/)).toBeVisible();
+  await page.getByText("Calculation details", { exact: true }).click();
+  await expect(page.getByText(/no change inferred/)).toBeVisible();
+  await page.getByLabel("Comparison period", { exact: true }).selectOption("full_month");
+  await expect(page.getByText(/no change inferred/)).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+test.describe("exact aggregate currency", () => {
+  test.use({ largeAggregates: true });
+  test("renders large dashboard, category and budget amounts without rounding pence", async ({ page }) => {
+    await page.goto("/");
+    const summary = page.getByRole("region", { name: "2024-02 financial summary" });
+    await expect(summary).toContainText("£90,071,999,999,099.29");
+    await expect(summary).toContainText("-£90,071,999,999,099.29");
+    await expect(page.locator(".category-list")).toContainText("£90,071,999,999,099.29");
+    await expect(page.locator(".trend-values")).toContainText("-£90,071,999,999,099.29");
+    await page.getByRole("button", { name: "Set your first budget", exact: true }).click();
+    await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
+    await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("100.00");
+    await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
+    await expect(page.getByText("£90,071,999,999,099.29 used / £100.00 limit", { exact: true })).toBeVisible();
+    await expect(page.getByText("£90,071,999,998,999.29 over limit.", { exact: true })).toBeVisible();
+    await expect(page.getByText("£90,071,999,998,999.29 over", { exact: true })).toBeVisible();
+  });
+});
+
 test("home, all workspace navigation controls and repeated editor shortcuts work", async ({ page }) => {
   await home(page);
   const summary = page.getByRole("region", { name: "2024-02 financial summary" });

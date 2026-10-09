@@ -35,11 +35,12 @@ Only one management panel opens at a time. Budget and goal shortcuts focus their
 
 - Accounts and categories are stored in the encrypted workspace. Accounts use GBP.
 - Transaction amounts are positive integer pence (for example, `1234` is £12.34); direction is represented by the transaction kind, not a negative amount.
+- Individual amounts and limits are capped at 99,999,999,999 pence, safely representable as JavaScript numbers. Aggregate totals remain signed 64-bit integer pence in Rust/SQLite and cross IPC as decimal strings. The UI uses BigInt for currency arithmetic, comparisons and formatting, including totals beyond JavaScript's safe-integer range. Only chart/progress proportions use floating point. Totals outside the signed 64-bit range fail explicitly rather than rounding or wrapping.
 - Income, expenses, refunds, and transfers are distinct transaction kinds. A refund is a credit against spending: monthly spending is expenses less refunds, and net cash flow is income less that net spending. Refunds are not reported as income.
 - Transfers are retained as transactions but excluded from income, spending, category totals, and net cash flow.
-- Transaction dates are validated ISO calendar dates and grouped by their source date. Merchant display text is retained separately from its normalized, lowercase matching field.
+- Transaction dates are validated ISO calendar dates from 1000-01-01 through 9999-12-31 and grouped by their source date. Merchant display text is retained separately from its normalized, lowercase matching field.
 - Transactions can be created, searched, filtered, sorted, paginated, corrected to a compatible category, and deleted with an in-app confirmation. Edits are intentionally limited to category correction; dates and amounts are immutable through this UI.
-- The dashboard shows values from persisted records only. Its trend covers six months ending at the selected month; empty months display zero.
+- The dashboard shows values from persisted records only. Its trend covers up to six months ending at the selected month; supported empty months display zero recorded activity, not evidence of no actual activity. Months before January 1000 are unavailable and omitted with an explanation, not queried as invalid dates.
 
 ## Monthly budgets and insights
 
@@ -47,7 +48,7 @@ Open **Budgets** from the dashboard. Limits are positive integer GBP pence for a
 
 Budget used is recorded expenses minus refunds in that transaction's current category, by validated source date. Transfers and income are excluded. Manual category corrections and explicit rule reclassification refresh usage. Refund-only periods may produce negative usage: the amount and remaining allowance retain that fact, while the progress bar floors at zero. Above-limit amounts and usage of at least 80% are marked using recorded evidence only.
 
-Past months use their full calendar period (including leap days); the current month stops at the local as-of date; future months have no elapsed usage. Same-elapsed-days comparison for partial months is the default, capped at the previous month's last day. Users can choose full-previous-month comparison, explicitly labelled as potentially unequal periods; this preference persists in the encrypted workspace. Comparisons show recorded amounts, dates and record counts, not claims of complete banking history. Missing category records yield no inferred comparison. Net cash flow is not an account balance, and no forecasts are presented.
+Past months use their full calendar period (including leap days); the current month stops at the local as-of date; future months have no elapsed usage. Same-elapsed-days comparison for partial months is the default, capped at the previous month's last day. Users can choose full-previous-month comparison, explicitly labelled as potentially unequal periods; this preference persists in the encrypted workspace. Comparisons show recorded amounts, dates and record counts, not claims of complete banking history. Missing category records yield no inferred comparison. January 1000 has no supported previous month: its comparison month, end date and amount are absent in both modes, and the UI explains that no comparison is available. Net cash flow is not an account balance, and no forecasts are presented.
 
 ## Savings goals
 

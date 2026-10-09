@@ -9,7 +9,7 @@ const mock = vi.mocked(invoke);
 const budgets: BudgetData = {
   month: "2024-02", asOf: "2024-02-09", periodEnd: "2024-02-09", previousMonth: "2024-01",
   previousEnd: null, comparisonMode: "same_day", rows: [
-    { categoryId: 1, categoryName: "Fictional food", limitPence: 10_000, usedPence: 12_345, previousUsedPence: null, recordCount: 2, previousRecordCount: 0 },
+    { categoryId: 1, categoryName: "Fictional food", limitPence: 10_000, usedPence: "12345", previousUsedPence: null, recordCount: 2, previousRecordCount: 0 },
   ],
 };
 const goal: SavingsGoal = { id: 1, name: "Fictional rainy day", targetPence: 10_000, progressPence: 0, targetDate: null, notes: "Private note" };
@@ -22,6 +22,22 @@ describe("dashboard financial highlights", () => {
     mock.mockImplementation(async (command) => command === "list_budgets" ? budgets : [goal]);
   });
   afterEach(cleanup);
+
+  it("orders large usage exactly and retains exact preview allowance pence", async () => {
+    mock.mockImplementation(async (command) => command === "list_budgets" ? {
+      ...budgets, rows: Array.from({ length: 4 }, (_, index) => ({
+        ...budgets.rows[0], categoryId: index + 1, categoryName: `Exact category ${index + 1}`,
+        usedPence: String(9_007_199_254_740_992n + BigInt(index)),
+      })),
+    } : []);
+    render(<FinancialHighlights {...props} />);
+    const overview = screen.getByRole("region", { name: "Budget and savings overview" });
+    expect(await within(overview).findByText("£90,071,992,547,309.95 over")).toBeTruthy();
+    expect(within(overview).getAllByRole("listitem").map((item) => item.textContent?.match(/Exact category \d/)?.[0]))
+      .toEqual(["Exact category 4", "Exact category 3", "Exact category 2"]);
+    expect(screen.queryByText("Exact category 1")).toBeNull();
+    expect(screen.getByText(/4 budgeted categories · 4 over limit/)).toBeTruthy();
+  });
 
   it("shows persisted allowance and explicit savings progress without invented balances or projections", async () => {
     render(<FinancialHighlights {...props} />);
@@ -37,7 +53,7 @@ describe("dashboard financial highlights", () => {
 
   it("retains refund-only allowance and overfunding without clipping the amounts", async () => {
     mock.mockImplementation(async (command) => command === "list_budgets"
-      ? { ...budgets, rows: [{ ...budgets.rows[0], usedPence: -500 }] } : [{ ...goal, progressPence: 12_345 }]);
+      ? { ...budgets, rows: [{ ...budgets.rows[0], usedPence: "-500" }] } : [{ ...goal, progressPence: 12_345 }]);
     render(<FinancialHighlights {...props} />);
     expect(await screen.findByText("£105.00 left")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Fictional food allowance used" })).toHaveProperty("value", 0);
@@ -93,7 +109,7 @@ describe("dashboard financial highlights", () => {
 
   it("bounds the previews while making the full lists discoverable", async () => {
     mock.mockImplementation(async (command) => command === "list_budgets" ? {
-      ...budgets, rows: Array.from({ length: 4 }, (_, index) => ({ ...budgets.rows[0], categoryId: index + 1, categoryName: `Fictional category ${index + 1}`, usedPence: index === 3 ? 25_000 : 1_000 })),
+      ...budgets, rows: Array.from({ length: 4 }, (_, index) => ({ ...budgets.rows[0], categoryId: index + 1, categoryName: `Fictional category ${index + 1}`, usedPence: index === 3 ? "25000" : "1000" })),
     } : Array.from({ length: 4 }, (_, index) => ({ ...goal, id: index + 1, name: `Fictional goal ${index + 1}` })));
     render(<FinancialHighlights {...props} />);
     await screen.findByText("Showing 3 of 4 categories, highest usage first. Manage budgets to see all.");

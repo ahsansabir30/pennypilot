@@ -8,13 +8,29 @@ const mock = vi.mocked(invoke);
 const categories = [{ id: 1, name: "Fictional Food", categoryType: "expense" as const, color: "#123456" }];
 const data = { month: "2024-02", asOf: "2024-02-09", periodEnd: "2024-02-09", previousMonth: "2024-01",
   previousEnd: "2024-01-09", comparisonMode: "same_day", rows: [
-    { categoryId: 1, categoryName: "Fictional Food", limitPence: 10_000, usedPence: 12_345,
+    { categoryId: 1, categoryName: "Fictional Food", limitPence: 10_000, usedPence: "12345",
       previousUsedPence: null, recordCount: 2, previousRecordCount: 0 },
   ] };
 
 describe("monthly budgets", () => {
   beforeEach(() => { mock.mockReset(); mock.mockImplementation(async (command) => command === "list_budgets" ? data : undefined); });
   afterEach(cleanup);
+
+  it("retains exact large usage, allowance and prior-period differences", async () => {
+    mock.mockResolvedValue({ ...data, rows: [{ ...data.rows[0], usedPence: "9007199254740993", previousUsedPence: "9007199254740992", previousRecordCount: 1 }] });
+    render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
+    expect(await screen.findByText("£90,071,992,547,409.93 used / £100.00 limit")).toBeTruthy();
+    expect(screen.getByText("£90,071,992,547,309.93 over limit.")).toBeTruthy();
+    expect(screen.getByText(/Recorded change: £0.01/)).toBeTruthy();
+  });
+
+  it("explains unavailable pre-1000 comparison without inferring change", async () => {
+    mock.mockResolvedValue({ ...data, month: "1000-01", periodEnd: "1000-01-31", previousMonth: null, previousEnd: null });
+    render(<Budgets month="1000-01" categories={categories} refreshKey={0} />);
+    expect(await screen.findByText(/Previous period is outside the supported date range/)).toBeTruthy();
+    expect(screen.getByText(/no change inferred/)).toBeTruthy();
+    expect(screen.queryByText(/Recorded change:/)).toBeNull();
+  });
 
   it("shows recorded usage, exceeded markers and missing history without inventing a comparison", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
@@ -76,7 +92,7 @@ describe("monthly budgets", () => {
   it("keeps pending budget inputs fixed and labels missing records honestly", async () => {
     let finishSave: (() => void) | undefined;
     mock.mockImplementation(async (command) => {
-      if (command === "list_budgets") return { ...data, rows: [{ ...data.rows[0], usedPence: 0, recordCount: 0 }] };
+      if (command === "list_budgets") return { ...data, rows: [{ ...data.rows[0], usedPence: "0", recordCount: 0 }] };
       if (command === "save_budget") return new Promise<void>((resolve) => { finishSave = resolve; });
     });
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
