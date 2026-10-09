@@ -14,6 +14,7 @@ import type {
 } from "./finance";
 import "./Dashboard.css";
 import CategorisationSettings from "./CategorisationSettings";
+import Budgets from "./Budgets";
 
 const PAGE_SIZE = 10;
 
@@ -39,6 +40,7 @@ function Dashboard({ onLock }: Props) {
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBudgets, setShowBudgets] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
   const [financeError, setFinanceError] = useState("");
   const [transactionError, setTransactionError] = useState("");
@@ -296,6 +298,12 @@ function Dashboard({ onLock }: Props) {
                   tone={monthly.netCashFlowPence < 0 ? "negative" : "net"}
                 />
               </section>
+              <p className="policy-note">Net cash flow is movement in recorded transactions, not an account balance.</p>
+              <div className="finance-tools">
+                <button className="lock-button" type="button" aria-expanded={showBudgets}
+                  onClick={() => setShowBudgets((value) => !value)}>Monthly budgets and insights</button>
+              </div>
+              {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey} />}
 
               <section className="insight-grid">
                 <article className="panel trend-panel">

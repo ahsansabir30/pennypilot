@@ -85,6 +85,51 @@
   min-height: 42px;
 }
 
+.finance-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.finance-management {
+  margin: 20px 0;
+  padding: 22px;
+  overflow-wrap: anywhere;
+}
+
+.finance-management button {
+  min-height: 36px;
+  max-width: 100%;
+  margin: 5px;
+  padding: 7px 12px;
+  border: 1px solid #dbe3d9;
+  border-radius: 8px;
+  background: white;
+  color: #304438;
+  overflow-wrap: anywhere;
+}
+
+.management-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.management-cards li {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid #dbe3d9;
+  border-radius: 12px;
+}
+
+.management-cards progress { width: 100%; accent-color: #4f8b68; }
+.budget-exceeded { color: #943832; font-weight: 600; }
+.management-preference { display: grid; gap: 8px; max-width: 420px; margin-top: 14px; }
+.management-preference select { width: 100%; min-width: 0; }
+
 .dashboard-actions {
   display: flex;
   align-items: center;

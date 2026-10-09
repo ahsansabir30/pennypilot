@@ -387,7 +387,8 @@ fn delete_category_from(connection: &Connection, category_id: i64) -> WorkspaceR
     let used: bool = connection
         .query_row(
             "SELECT EXISTS(SELECT 1 FROM transactions WHERE category_id=?1)
-             OR EXISTS(SELECT 1 FROM category_rules WHERE category_id=?1)",
+             OR EXISTS(SELECT 1 FROM category_rules WHERE category_id=?1)
+             OR EXISTS(SELECT 1 FROM monthly_budgets WHERE category_id=?1)",
             [category_id],
             |row| row.get(0),
         )
@@ -840,6 +841,17 @@ mod tests {
             color: "#123456".to_owned(),
         };
         let category_id = save_category_from(&connection, &category).expect("create category");
+        connection.execute("INSERT INTO monthly_budgets(month,category_id,limit_pence) VALUES('2026-10',?1,100)",[category_id]).expect("budget reference");
+        assert!(matches!(
+            delete_category_from(&connection, category_id),
+            Err(WorkspaceError::CategoryInUse)
+        ));
+        connection
+            .execute(
+                "DELETE FROM monthly_budgets WHERE category_id=?1",
+                [category_id],
+            )
+            .expect("remove budget");
         assert!(matches!(
             save_category_from(&connection, &category),
             Err(WorkspaceError::CategoryNameExists)

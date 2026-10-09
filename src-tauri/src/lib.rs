@@ -48,7 +48,7 @@ enum WorkspaceError {
     InvalidFinancialInput,
     #[error("The requested record does not exist.")]
     RecordNotFound,
-    #[error("This category is used by transactions or rules. Reassign them before deleting it.")]
+    #[error("This category is used by transactions, rules or budgets. Reassign or remove them before deleting it.")]
     CategoryInUse,
     #[error("A category with this name and type already exists.")]
     CategoryNameExists,
@@ -543,7 +543,11 @@ pub fn run() {
             finance::categorisation::save_category,
             finance::categorisation::delete_category,
             finance::categorisation::reclassify_transactions,
-            finance::categorisation::reset_transaction_category
+            finance::categorisation::reset_transaction_category,
+            finance::budgets::list_budgets,
+            finance::budgets::save_budget,
+            finance::budgets::delete_budget,
+            finance::budgets::save_budget_preferences
         ])
         .run(tauri::generate_context!())
         .expect("failed to start PennyPilot");

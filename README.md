@@ -37,7 +37,15 @@ The unlocked workspace now includes a financial overview backed by encrypted SQL
 - Transactions can be created, searched, filtered, sorted, paginated, corrected to a compatible category, and deleted with an in-app confirmation. Edits are intentionally limited to category correction; dates and amounts are immutable through this UI.
 - The dashboard shows values from persisted records only. Its trend covers six months ending at the selected month; empty months display zero.
 
-CSV import, custom accounts/categories, recurring payments, budgets, savings goals, and backup/export remain planned work.
+## Monthly budgets and insights
+
+Open **Monthly budgets and insights** from the dashboard. Limits are positive integer GBP pence for a specific category and calendar month; setting a limit does not roll it into other months. Category IDs link budgets to edited category names. A category referenced by a budget cannot be deleted until its budgets are removed.
+
+Budget used is recorded expenses minus refunds in that transaction's current category, by validated source date. Transfers and income are excluded. Manual category corrections and explicit rule reclassification refresh usage. Refund-only periods may produce negative usage: the amount and remaining allowance retain that fact, while the progress bar floors at zero. Above-limit amounts and usage of at least 80% are marked using recorded evidence only.
+
+Past months use their full calendar period (including leap days); the current month stops at the local as-of date; future months have no elapsed usage. Same-elapsed-days comparison for partial months is the default, capped at the previous month's last day. Users can choose full-previous-month comparison, explicitly labelled as potentially unequal periods; this preference persists in the encrypted workspace. Comparisons show recorded amounts, dates and record counts, not claims of complete banking history. Missing category records yield no inferred comparison. Net cash flow is not an account balance, and no forecasts are presented.
+
+CSV import, custom accounts, recurring payments, savings goals, and backup/export remain planned work.
 
 ## Development
 

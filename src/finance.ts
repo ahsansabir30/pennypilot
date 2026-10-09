@@ -88,3 +88,9 @@ export function localIsoDate(date = new Date()): string {
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
+
+export function financeError(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error instanceof Error) return error.message;
+  return "PennyPilot could not load or save this financial data.";
+}

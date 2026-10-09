@@ -4,6 +4,7 @@ use tauri::State;
 
 use super::{AppState, WorkspaceError, WorkspaceResult};
 
+pub(super) mod budgets;
 pub(super) mod categorisation;
 
 const MAX_AMOUNT_PENCE: i64 = 99_999_999_999;
@@ -119,7 +120,7 @@ pub(super) fn initialize_schema(connection: &Connection) -> WorkspaceResult<()> 
         )
         .map_err(|_| WorkspaceError::Storage)?;
     if version >= 2 {
-        return categorisation::migrate(connection);
+        return migrate_features(connection);
     }
     connection
         .execute_batch(
@@ -180,7 +181,12 @@ pub(super) fn initialize_schema(connection: &Connection) -> WorkspaceResult<()> 
              COMMIT;",
         )
         .map_err(|_| WorkspaceError::Storage)?;
-    categorisation::migrate(connection)
+    migrate_features(connection)
+}
+
+fn migrate_features(connection: &Connection) -> WorkspaceResult<()> {
+    categorisation::migrate(connection)?;
+    budgets::migrate(connection)
 }
 
 fn validate_iso_date(date: &str) -> WorkspaceResult<()> {
@@ -767,7 +773,7 @@ mod tests {
             })
             .expect("latest migration");
         assert_eq!(account_count, 1);
-        assert_eq!(migration_version, 3);
+        assert_eq!(migration_version, 4);
         initialize_schema(&migrated).expect("repeat idempotent migration");
         let account_count = migrated
             .query_row("SELECT count(*) FROM accounts", [], |row| {
