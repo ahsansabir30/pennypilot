@@ -16,7 +16,8 @@ describe("savings goals", () => {
     expect(await screen.findByText("£0.00 entered progress / £100.00 target")).toBeTruthy();
     expect(screen.getByText("0.0% · £100.00 remaining")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 0);
-    expect(screen.getByText(/No projected completion outcome/)).toBeTruthy();
+    expect(screen.getByText(/not a bank balance/)).toBeTruthy();
+    expect(screen.getByText(/predict completion/)).toBeTruthy();
     expect(mock).not.toHaveBeenCalledWith("list_finance_data", expect.anything());
   });
 

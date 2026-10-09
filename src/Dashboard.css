@@ -104,6 +104,15 @@
 
 .finance-shell [tabindex="-1"]:focus-visible { outline: 3px solid #6b9c7d; outline-offset: 4px; }
 .clear-filters { display: block; margin: 12px auto 0; }
+.calculation-details { margin: 10px 0; color: var(--finance-muted); font-size: 12px; }
+.calculation-details > summary { width: fit-content; min-height: 44px; display: flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
+.calculation-details > summary::before { content: "+"; }
+.calculation-details[open] > summary::before { content: "-"; }
+.finance-shell button:disabled { cursor: not-allowed; opacity: .55; }
+.management-cards h3 { margin: 0 0 12px; letter-spacing: -.3px; }
+.management-cards p { margin: 8px 0; }
+.finance-management > h2, .categorisation-panel > h2 { font-size: 20px; letter-spacing: -.5px; }
+.finance-management .transaction-form > h3 { font-size: 16px; letter-spacing: -.3px; }
 
 .planning-grid {
   display: grid;

@@ -39,14 +39,14 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
   return <section className="planning-grid" aria-label="Budget and savings overview">
     <article className="panel planning-panel" aria-labelledby="budget-preview-title">
       <div className="panel-heading">
-        <div><span className="eyebrow">Your monthly plan</span><h2 id="budget-preview-title">Budget check-in</h2></div>
+        <h2 id="budget-preview-title">Budget check-in</h2>
         <button className="text-button" type="button" onClick={onBudgets}>Manage budgets</button>
       </div>
       {budgetError ? <div className="preview-error" role="alert">{budgetError}
         <button type="button" className="text-button" onClick={() => setBudgetRetry((value) => value + 1)}>Retry budget overview</button>
       </div> : !current ? <p role="status" className="preview-empty">Loading your budget plan...</p>
         : current.rows.length === 0 ? <div className="preview-empty">
-          <strong>Give your spending a plan.</strong><p>Set a category limit for this month to see your remaining allowance here.</p>
+          <strong>No budgets this month.</strong>
           <button className="lock-button" type="button" onClick={onBudgets}>Set your first budget</button>
         </div> : <>
           <p className="preview-caption">{current.rows.length} budgeted {current.rows.length === 1 ? "category" : "categories"} · {overLimitCount} over limit · {current.periodEnd ? `Recorded through ${current.periodEnd}` : "Future month; no elapsed spending period"}</p>
@@ -64,22 +64,22 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
             })}
           </ul>
           {current.rows.length > 3 && <p className="preview-caption">Showing 3 of {current.rows.length} categories, highest usage first. Manage budgets to see all.</p>}
-          <p className="policy-note">Recorded expenses less refunds; transfers excluded. Allowance is not a bank balance. Missing records may hide spending.</p>
+          <p className="policy-note">Expenses less refunds. Transfers excluded; history may be incomplete.</p>
         </>}
     </article>
     <article className="panel planning-panel" aria-labelledby="goal-preview-title">
       <div className="panel-heading">
-        <div><span className="eyebrow">Step by step</span><h2 id="goal-preview-title">Savings at a glance</h2></div>
+        <h2 id="goal-preview-title">Savings at a glance</h2>
         <button className="text-button" type="button" onClick={onGoals}>Manage goals</button>
       </div>
       {goalError ? <div className="preview-error" role="alert">{goalError}
         <button className="text-button" type="button" onClick={() => setGoalRetry((value) => value + 1)}>Retry savings overview</button>
       </div> : goals === null ? <p role="status" className="preview-empty">Loading your savings goals...</p>
         : goals.length === 0 ? <div className="preview-empty">
-          <strong>Make room for what matters.</strong><p>Choose a goal and enter the progress you know. Start at zero if you need to.</p>
+          <strong>No savings goals yet.</strong>
           <button className="lock-button" type="button" onClick={onGoals}>Create your first goal</button>
         </div> : <>
-          <p className="preview-caption">Your entered progress, not an inferred balance</p>
+          <p className="preview-caption">Entered progress · Not a bank balance</p>
           <ul className="preview-list">
             {goals.slice(0, 3).map((goal) => <li key={goal.id}>
               <div className="preview-row"><strong>{goal.name}</strong><span className="plan-status">
@@ -90,7 +90,6 @@ export default function FinancialHighlights({ month, refreshKey, onBudgets, onGo
             </li>)}
           </ul>
           {goals.length > 3 && <p className="preview-caption">Showing 3 of {goals.length} goals. Manage goals to see all.</p>}
-          <p className="policy-note">Goals track amounts you enter. They do not move money or predict when you will finish.</p>
         </>}
     </article>
   </section>;

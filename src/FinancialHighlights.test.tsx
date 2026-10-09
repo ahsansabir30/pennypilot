@@ -31,7 +31,7 @@ describe("dashboard financial highlights", () => {
     expect(await screen.findByText("0% saved")).toBeTruthy();
     expect(screen.getByText("£100.00 to go")).toBeTruthy();
     expect(screen.getByText(/Recorded through 2024-02-09/)).toBeTruthy();
-    expect(screen.getByText(/Missing records may hide spending/)).toBeTruthy();
+    expect(screen.getByText(/history may be incomplete/)).toBeTruthy();
     expect(screen.queryByText("Private note")).toBeNull();
   });
 
@@ -69,7 +69,7 @@ describe("dashboard financial highlights", () => {
     render(<FinancialHighlights {...props} />);
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", expect.stringContaining("Budget records could not be loaded."));
     expect(await screen.findByText("0% saved")).toBeTruthy();
-    expect(screen.queryByText("Give your spending a plan.")).toBeNull();
+    expect(screen.queryByText("No budgets this month.")).toBeNull();
     failed = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry budget overview" }));
     expect(await screen.findByText("£23.45 over")).toBeTruthy();
@@ -85,7 +85,7 @@ describe("dashboard financial highlights", () => {
     const view = render(<FinancialHighlights {...props} />);
     expect(screen.getByText("Loading your budget plan...")).toBeTruthy();
     view.rerender(<FinancialHighlights {...props} month="2024-03" />);
-    await screen.findByText("Give your spending a plan.");
+    await screen.findByText("No budgets this month.");
     resolveFirst(budgets);
     await waitFor(() => expect(screen.queryByText("£23.45 over")).toBeNull());
     expect(mock).toHaveBeenCalledWith("list_budgets", expect.objectContaining({ month: "2024-03" }));

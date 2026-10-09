@@ -20,6 +20,9 @@ npm run typecheck
 echo "Running frontend tests..."
 npm test
 
+echo "Running browser interaction tests..."
+npm run test:e2e
+
 echo "Auditing frontend dependencies..."
 npm audit --audit-level=high
 

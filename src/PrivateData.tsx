@@ -44,7 +44,7 @@ export default function PrivateData({ month, accounts, categories, search, kind,
         from: scope.from, to: scope.to, accountId: scope.accountId ? Number(scope.accountId) : null,
         categoryId: scope.categoryId ? Number(scope.categoryId) : null, kind: scope.kind || null, search: scope.search,
       } });
-      setMessage(`Exported ${file.recordCount} transaction records to ${file.path}. This CSV is plaintext; protect it.`);
+      setMessage(`Exported ${file.recordCount} transactions: ${file.path}. This CSV is plaintext.`);
       setExportConsent(false);
     } catch (error) { setError(financeError(error)); }
     finally { setBusy(false); }
@@ -57,7 +57,7 @@ export default function PrivateData({ month, accounts, categories, search, kind,
     setBusy(true); setError(""); setMessage("");
     try {
       const file = await invoke<SavedFile>("create_private_backup", { passphrase });
-      setMessage(`Encrypted backup saved to ${file.path} (${file.recordCount} transaction records, plus categories, rules, budgets, preferences and goals). Keep the backup passphrase separately; it cannot be recovered from the file.`);
+      setMessage(`Encrypted backup: ${file.path} · ${file.recordCount} transactions. Keep the backup passphrase separately.`);
     } catch (error) { setError(financeError(error)); }
     finally { setPassphrase(""); setConfirmation(""); setBusy(false); }
   }
@@ -73,7 +73,7 @@ export default function PrivateData({ month, accounts, categories, search, kind,
       const result = await invoke<RestoreResult>("restore_private_backup", {
         path: restorePath, passphrase: restorePassphrase, confirmation: restoreText,
       });
-      setMessage(`Restored ${result.recordCount} transaction records and related data. Encrypted pre-restore safety backup: ${result.safetyBackupPath}. Your workspace unlock passphrase is unchanged. The safety backup uses the backup passphrase you just entered.`);
+      setMessage(`Restored ${result.recordCount} transactions. Safety backup: ${result.safetyBackupPath} (uses this backup passphrase). Your workspace unlock passphrase is unchanged.`);
       setRestoreConsent(false); setRestoreText(""); setExportConsent(false);
       setScope((current) => ({ ...current, accountId: "", categoryId: "", kind: "", search: "" }));
       onRestored();
@@ -81,18 +81,18 @@ export default function PrivateData({ month, accounts, categories, search, kind,
     finally { setRestorePassphrase(""); setBusy(false); }
   }
 
-  return <section className="panel finance-management" aria-labelledby="private-data-title">
+  return <section id="private-data-panel" className="panel finance-management" aria-labelledby="private-data-title">
     <h2 id="private-data-title">Private export and backup</h2>
-    <p className="policy-note">Local files only, outside the repository. No uploads, cloud storage or unattended sharing.
-      Backups include financial records and goal notes, but never workspace keys, OS recovery credentials or stored passphrases.</p>
-    {locations.map((path) => <p key={path} className="local-file-path">{path}</p>)}
+    <p className="policy-note">Local files only. Backups include financial records and notes, not workspace credentials.</p>
+    <details className="calculation-details"><summary>Local file locations</summary>
+      {locations.map((path) => <p key={path} className="local-file-path">{path}</p>)}</details>
     {error && <p role="alert">{error}</p>}
     {message && <p role="status" className="local-file-path">{message}</p>}
     <form className="transaction-form" onSubmit={(event) => void exportTransactions(event)}>
       <h3>Scoped transaction CSV export</h3>
-      <p className="policy-note">UTF-8 with BOM, comma-separated, CRLF rows; GBP decimal pounds with two places plus integer pence.
+      <details className="calculation-details"><summary>CSV format</summary><p className="policy-note">UTF-8 with BOM, comma-separated, CRLF rows; GBP decimal pounds with two places plus integer pence.
         Source dates use YYYY-MM-DD. All amounts are positive; kind distinguishes expenses, income, refunds and transfers.
-        Spreadsheet-sensitive cells are prefixed with an apostrophe. CSV is a report, not a restorable backup.</p>
+        Spreadsheet-sensitive cells are prefixed with an apostrophe. CSV is a report, not a restorable backup.</p></details>
       <div className="transaction-form-grid">
         <label>Export from (inclusive)<input required type="date" value={scope.from} onChange={(event) => setScope({ ...scope, from: event.currentTarget.value })} /></label>
         <label>Export through (inclusive)<input required type="date" value={scope.to} onChange={(event) => setScope({ ...scope, to: event.currentTarget.value })} /></label>
@@ -113,8 +113,7 @@ export default function PrivateData({ month, accounts, categories, search, kind,
     </form>
     <form className="transaction-form" onSubmit={(event) => void createBackup(event)}>
       <h3>Create encrypted backup</h3>
-      <p className="policy-note">A consistent snapshot of all local financial data. Argon2id + XChaCha20-Poly1305, with a separate passphrase.
-        Minimum 12 characters. Plaintext backups are not offered. Copy the resulting encrypted file to a private offline location using your file manager.</p>
+      <p className="policy-note">Separate passphrase · 12+ characters. It cannot be recovered; keep it safe.</p>
       <div className="transaction-form-grid">
         <label>Backup passphrase<input required type="password" autoComplete="new-password" maxLength={1024} value={passphrase} onChange={(event) => setPassphrase(event.currentTarget.value)} /></label>
         <label>Confirm backup passphrase<input required type="password" autoComplete="new-password" maxLength={1024} value={confirmation} onChange={(event) => setConfirmation(event.currentTarget.value)} /></label>
@@ -123,9 +122,7 @@ export default function PrivateData({ month, accounts, categories, search, kind,
     </form>
     <form className="transaction-form" onSubmit={(event) => void restoreBackup(event)}>
       <h3>Restore an encrypted backup</h3>
-      <p className="policy-note">Paste the absolute local path to a .ppbackup file (including files copied from another device).
-        Format, encryption and all records are validated before replacement. A new encrypted safety backup of current data is required before restore;
-        it uses the entered backup passphrase. Failed validation or writes preserve current records. Workspace unlock credentials are unchanged.</p>
+      <p className="policy-note">Replaces your financial records after validation. An encrypted safety backup is created first using the entered backup passphrase.</p>
       <div className="transaction-form-grid">
         <label className="goal-notes-field">Local backup file path<input required value={restorePath} onChange={(event) => setRestorePath(event.currentTarget.value)} /></label>
         <label>Restore backup passphrase<input required type="password" autoComplete="off" maxLength={1024} value={restorePassphrase} onChange={(event) => setRestorePassphrase(event.currentTarget.value)} /></label>

@@ -23,13 +23,15 @@ const PAGE_SIZE = 10;
 
 type Props = {
   onLock: () => void;
+  lockBusy?: boolean;
+  lockError?: string;
 };
 
 function currentMonth(): string {
   return localIsoDate().slice(0, 7);
 }
 
-function Dashboard({ onLock }: Props) {
+function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   const [month, setMonth] = useState(currentMonth);
   const [finance, setFinance] = useState<FinanceData | null>(null);
   const [transactions, setTransactions] = useState<TransactionPage | null>(null);
@@ -43,10 +45,11 @@ function Dashboard({ onLock }: Props) {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [showBudgets, setShowBudgets] = useState(false);
-  const [showGoals, setShowGoals] = useState(false);
-  const [showPrivateData, setShowPrivateData] = useState(false);
+  const [activePanel, setActivePanel] = useState<"budgets" | "goals" | "private" | "categories" | null>(null);
+  const showBudgets = activePanel === "budgets";
+  const showGoals = activePanel === "goals";
+  const showPrivateData = activePanel === "private";
+  const showSettings = activePanel === "categories";
   const budgetHeadingRef = useRef<HTMLHeadingElement>(null);
   const goalHeadingRef = useRef<HTMLHeadingElement>(null);
   const [pendingDelete, setPendingDelete] = useState<number | null>(null);
@@ -131,8 +134,20 @@ function Dashboard({ onLock }: Props) {
     setRefreshKey((key) => key + 1);
   }
 
+  function openPlanning(panel: "budgets" | "goals") {
+    if (activePanel === panel) {
+      (panel === "budgets" ? budgetHeadingRef : goalHeadingRef).current?.focus();
+    } else {
+      setActivePanel(panel);
+    }
+  }
+
+  function togglePanel(panel: NonNullable<typeof activePanel>) {
+    setActivePanel((current) => current === panel ? null : panel);
+  }
+
   function restored() {
-    setShowBudgets(false); setShowGoals(false); setShowSettings(false); setShowForm(false);
+    setActivePanel("private"); setShowForm(false);
     setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); setPendingDelete(null);
     setTransactions(null);
     refresh();
@@ -192,6 +207,7 @@ function Dashboard({ onLock }: Props) {
 
   async function updateCategory(transactionId: number, categoryId: string) {
     setTransactionError("");
+    setBusy(true);
     try {
       await invoke("update_transaction_category", {
         transactionId,
@@ -200,28 +216,30 @@ function Dashboard({ onLock }: Props) {
       refresh();
     } catch (error) {
       setTransactionError(errorMessage(error));
-    }
+    } finally { setBusy(false); }
   }
 
   async function clearManualCategory(transactionId: number) {
     setTransactionError("");
+    setBusy(true);
     try {
       await invoke("reset_transaction_category", { transactionId });
       refresh();
     } catch (error) {
       setTransactionError(errorMessage(error));
-    }
+    } finally { setBusy(false); }
   }
 
   async function deleteTransaction(transactionId: number) {
     setTransactionError("");
+    setBusy(true);
     try {
       await invoke("delete_transaction", { transactionId });
       setPendingDelete(null);
       refresh();
     } catch (error) {
       setTransactionError(errorMessage(error));
-    }
+    } finally { setBusy(false); }
   }
 
   function changeKind(kind: TransactionKind) {
@@ -254,11 +272,12 @@ function Dashboard({ onLock }: Props) {
             <span className="privacy-dot" />
             Encrypted on this device
           </span>
-          <button className="lock-button" onClick={onLock} type="button">
-            Lock workspace
+          <button className="lock-button" disabled={lockBusy} onClick={onLock} type="button">
+            {lockBusy ? "Locking..." : "Lock workspace"}
           </button>
         </div>
       </header>
+      {lockError && <p className="dashboard-error" role="alert">{lockError}</p>}
 
       {loading && !finance ? (
         <div className="dashboard-loading" role="status">
@@ -269,9 +288,8 @@ function Dashboard({ onLock }: Props) {
         <section className="dashboard-content" aria-labelledby="dashboard-title">
           <div className="dashboard-heading">
             <div>
-              <span className="eyebrow">Your month, at a glance</span>
               <h1 id="dashboard-title">Financial overview</h1>
-              <p>Your recorded activity. Private, on this device.</p>
+              <p>Recorded activity · GBP</p>
             </div>
             <label className="month-picker">
               <span>Month</span>
@@ -316,18 +334,18 @@ function Dashboard({ onLock }: Props) {
                   tone={monthly.netCashFlowPence < 0 ? "negative" : "net"}
                 />
               </section>
-              <p className="policy-note">Net cash flow is movement in recorded transactions, not an account balance.</p>
+              <p className="policy-note">Net cash flow is not an account balance.</p>
               <nav className="finance-tools" aria-label="Workspace tools">
                 <a className="lock-button" href="#transactions-title">Transactions</a>
                 <button className="lock-button" type="button" aria-expanded={showBudgets}
-                  aria-label="Monthly budgets and insights" onClick={() => setShowBudgets((value) => !value)}>Budgets &amp; insights</button>
+                  aria-controls="budgets-panel" aria-label="Monthly budgets and insights" onClick={() => togglePanel("budgets")}>Budgets</button>
                 <button className="lock-button" type="button" aria-expanded={showGoals}
-                  aria-label="Manage savings goals" onClick={() => setShowGoals((value) => !value)}>Savings goals</button>
+                  aria-controls="savings-panel" aria-label="Manage savings goals" onClick={() => togglePanel("goals")}>Savings</button>
                 <button className="lock-button" type="button" aria-expanded={showPrivateData}
-                  aria-label="Private export and backup" onClick={() => setShowPrivateData((value) => !value)}>Export &amp; backup</button>
+                  aria-controls="private-data-panel" aria-label="Private export and backup" onClick={() => togglePanel("private")}>Export &amp; backup</button>
               </nav>
               <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision}
-                onBudgets={() => setShowBudgets(true)} onGoals={() => setShowGoals(true)} />
+                onBudgets={() => openPlanning("budgets")} onGoals={() => openPlanning("goals")} />
               {showBudgets && <Budgets month={month} categories={finance.categories} refreshKey={refreshKey}
                 headingRef={budgetHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
               {showGoals && <SavingsGoals headingRef={goalHeadingRef} onChanged={() => setPlanningRevision((value) => value + 1)} />}
@@ -411,13 +429,12 @@ function Dashboard({ onLock }: Props) {
               <section className="panel transactions-panel" aria-labelledby="transactions-title">
                 <div className="transactions-heading">
                   <div>
-                    <h2 id="transactions-title">Transactions</h2>
-                    <p>Search records and correct a category at any time.</p>
+                    <h2 id="transactions-title" tabIndex={-1}>Transactions</h2>
                   </div>
                   <div className="dashboard-actions">
-                  <button className="lock-button" onClick={() => setShowSettings((value) => !value)} type="button"
-                    aria-expanded={showSettings}>Manage categories and rules</button>
-                  <button className="add-transaction-button" onClick={openForm} type="button">
+                  <button className="lock-button" onClick={() => togglePanel("categories")} type="button"
+                    aria-controls="categorisation-panel" aria-expanded={showSettings}>Manage categories and rules</button>
+                  <button className="add-transaction-button" disabled={busy} onClick={openForm} type="button">
                     <span aria-hidden="true">＋</span> Add transaction
                   </button>
                   </div>
@@ -430,6 +447,7 @@ function Dashboard({ onLock }: Props) {
                       <button
                         aria-label="Close transaction form"
                         className="close-form-button"
+                        disabled={busy}
                         onClick={() => setShowForm(false)}
                         type="button"
                       >×</button>
@@ -608,6 +626,7 @@ function Dashboard({ onLock }: Props) {
                           transaction={transaction}
                           categories={finance.categories}
                           pendingDelete={pendingDelete === transaction.id}
+                          busy={busy}
                           onCategoryChange={(categoryId) => void updateCategory(transaction.id, categoryId)}
                           onUseRules={() => void clearManualCategory(transaction.id)}
                           onDelete={() => setPendingDelete(transaction.id)}
@@ -618,9 +637,9 @@ function Dashboard({ onLock }: Props) {
                       {transactions?.transactions.length === 0 && (
                         <tr>
                           <td className="empty-transactions" colSpan={6}>
-                            {search || kindFilter || categoryFilter
+                            <span>{search || kindFilter || categoryFilter
                               ? "No transactions match these filters."
-                              : "No transactions for this month yet. Add one to see your real financial picture."}
+                              : "No transactions this month."}</span>
                             {(search || kindFilter || categoryFilter) && <button className="lock-button clear-filters" type="button"
                               onClick={() => { setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); }}>Clear filters</button>}
                           </td>
@@ -662,8 +681,8 @@ function Dashboard({ onLock }: Props) {
       )}
 
       <footer className="page-footer dashboard-footer">
-        <span>Made for a more confident relationship with money.</span>
-        <span>GBP · United Kingdom · Stored locally</span>
+        <span>Encrypted · Stored locally</span>
+        <span>GBP · United Kingdom</span>
       </footer>
     </main>
   );
@@ -698,6 +717,7 @@ function TransactionRow({
   transaction,
   categories,
   pendingDelete,
+  busy,
   onCategoryChange,
   onUseRules,
   onDelete,
@@ -707,6 +727,7 @@ function TransactionRow({
   transaction: Transaction;
   categories: FinanceData["categories"];
   pendingDelete: boolean;
+  busy: boolean;
   onCategoryChange: (categoryId: string) => void;
   onUseRules: () => void;
   onDelete: () => void;
@@ -741,6 +762,7 @@ function TransactionRow({
         ) : (
           <>
           <select
+            disabled={busy}
             aria-label={`Category for ${displayName}`}
             className="category-select"
             value={transaction.categorySource === "manual" ? transaction.categoryId ?? "" : "automatic"}
@@ -758,7 +780,7 @@ function TransactionRow({
             ? <details className="category-details"><summary>Category details</summary><small className="category-explanation">{transaction.categoryExplanation}</small></details>
             : <small className="category-explanation">{transaction.categoryExplanation}</small>}
           {transaction.categorySource === "manual" && <button type="button"
-            className="use-rules-button" onClick={onUseRules}
+            className="use-rules-button" disabled={busy} onClick={onUseRules}
             aria-label={`Use rules for ${displayName}`}>Use rules (clear manual choice)</button>}
           </>
         )}
@@ -769,11 +791,11 @@ function TransactionRow({
       <td className="transaction-actions">
         {pendingDelete ? (
           <>
-            <button className="confirm-delete" onClick={onConfirmDelete} type="button">Confirm</button>
-            <button className="cancel-delete" onClick={onCancelDelete} type="button">Cancel</button>
+            <button className="confirm-delete" disabled={busy} onClick={onConfirmDelete} type="button">Confirm</button>
+            <button className="cancel-delete" disabled={busy} onClick={onCancelDelete} type="button">Cancel</button>
           </>
         ) : (
-          <button className="delete-button" onClick={onDelete} type="button" aria-label={`Delete ${displayName}`}>
+          <button className="delete-button" disabled={busy} onClick={onDelete} type="button" aria-label={`Delete ${displayName}`}>
             Delete
           </button>
         )}

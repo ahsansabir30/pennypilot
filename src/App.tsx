@@ -87,7 +87,7 @@ function App() {
   const isNewPassphrase = mode !== "unlock";
 
   if (status === "unlocked") {
-    return <Dashboard onLock={() => void lock()} />;
+    return <Dashboard onLock={() => void lock()} lockBusy={busy} lockError={message} />;
   }
 
   return (
@@ -101,21 +101,17 @@ function App() {
         </div>
         <span className="privacy-pill">
           <span className="privacy-dot" />
-          Your data stays on this device
+          Stored on this device
         </span>
       </header>
 
       <section className="welcome-layout" aria-labelledby="welcome-title">
         <div className="welcome-copy">
-          <span className="eyebrow">A clearer view of your money</span>
           <h1 id="welcome-title">
-            Your finances,
-            <br />
-            <span>on your terms.</span>
+            Your money.<br /><span>Kept private.</span>
           </h1>
           <p className="welcome-description">
-            Understand your spending, stay ahead of subscriptions, and make
-            progress toward what matters — privately, on your own device.
+            Spending, budgets and savings in one encrypted workspace.
           </p>
           <div className="privacy-note">
             <span className="privacy-icon" aria-hidden="true">
@@ -124,8 +120,7 @@ function App() {
             <p>
               <strong>Private by design</strong>
               <span>
-                Your workspace is encrypted. PennyPilot never connects to your
-                bank.
+                Local storage. No bank connection.
               </span>
             </p>
           </div>
@@ -171,13 +166,7 @@ function App() {
                     ? "Set a new passphrase"
                     : "Unlock your workspace"}
               </h2>
-              <p className="card-description">
-                {mode === "create"
-                  ? "Choose a passphrase to encrypt your financial data on this device."
-                  : mode === "recover"
-                    ? "Use this device’s secure recovery key to protect your workspace with a new passphrase."
-                    : "Your encrypted financial data is stored locally on this device."}
-              </p>
+              {mode === "recover" && <p className="card-description">Uses this device's recovery key. Your records stay unchanged.</p>}
 
               <form className="passphrase-form" onSubmit={submit}>
                 <label htmlFor="passphrase">
@@ -185,19 +174,20 @@ function App() {
                 </label>
                 <input
                   autoComplete={
-                    mode === "create" ? "new-password" : "current-password"
+                    mode === "unlock" ? "current-password" : "new-password"
                   }
                   autoFocus
                   id="passphrase"
                   onChange={(event) => setPassphrase(event.currentTarget.value)}
                   type="password"
+                  maxLength={1024}
                   value={passphrase}
                   required
                 />
                 {isNewPassphrase && (
                   <>
                     <span className="field-hint">
-                      Use at least 12 characters. Longer is safer.
+                      At least 12 characters.
                     </span>
                     <label htmlFor="confirm-passphrase">
                       Confirm passphrase
@@ -209,6 +199,7 @@ function App() {
                         setConfirmation(event.currentTarget.value)
                       }
                       type="password"
+                      maxLength={1024}
                       value={confirmation}
                       required
                     />
@@ -234,6 +225,7 @@ function App() {
               {mode === "unlock" ? (
                 <button
                   className="text-button"
+                  disabled={busy}
                   onClick={() => changeMode("recover")}
                   type="button"
                 >
@@ -242,6 +234,7 @@ function App() {
               ) : mode === "recover" ? (
                 <button
                   className="text-button"
+                  disabled={busy}
                   onClick={() => changeMode("unlock")}
                   type="button"
                 >
@@ -259,7 +252,7 @@ function App() {
       </section>
 
       <footer className="page-footer">
-        <span>Made for a more confident relationship with money.</span>
+        <span>Encrypted · Stored locally</span>
         <span>GBP · United Kingdom</span>
       </footer>
     </main>

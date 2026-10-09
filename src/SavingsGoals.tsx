@@ -45,17 +45,16 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     }
     await mutate("save_savings_goal", { input: {
       id: form.id, name: form.name, targetPence, progressPence, targetDate: form.targetDate || null, notes: form.notes,
-    } }, "Savings goal saved. Progress is the amount you entered, not an inferred bank balance.");
+    } }, "Savings goal saved.");
   }
 
-  return <section className="panel finance-management" aria-labelledby="savings-title">
+  return <section id="savings-panel" className="panel finance-management" aria-labelledby="savings-title">
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Savings goals</h2>
-    <p className="policy-note">Progress is explicitly entered by you. It is not calculated from income, net cash flow or incomplete transaction history.
-      Goals do not reserve funds or confirm an actual bank balance. No projected completion outcome is inferred.</p>
+    <p className="policy-note">Entered progress, not a bank balance. Goals do not move money or predict completion.</p>
     {error && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading savings goals...</p>}
-    {!loading && goals.length === 0 && !error && <p>No savings goals yet. Start with a target and your explicitly known progress.</p>}
+    {!loading && goals.length === 0 && !error && <p>No savings goals yet.</p>}
     <ul className="management-cards">
       {goals.map((goal) => {
         const percent = goal.progressPence / goal.targetPence * 100;
@@ -67,9 +66,9 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
           <progress aria-label={`${goal.name} savings progress`} value={Math.min(100, percent)} max={100} />
           <p>{(Math.round(percent * 10) / 10).toFixed(1)}% · {formatPence(remaining)} remaining</p>
           {extra > 0 && <p>Overfunded by {formatPence(extra)}; progress is retained, not capped.</p>}
-          <p className="policy-note">Inputs: entered progress {formatPence(goal.progressPence)} ÷ target {formatPence(goal.targetPence)}.
-            {goal.targetDate ? ` Target date: ${goal.targetDate} (your preference, not a forecast).` : " No target date."}</p>
-          {goal.notes && <p className="goal-notes">{goal.notes}</p>}
+          <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">Inputs: entered progress {formatPence(goal.progressPence)} ÷ target {formatPence(goal.targetPence)}.
+            {goal.targetDate ? ` Target date: ${goal.targetDate} (your preference, not a forecast).` : " No target date."}</p></details>
+          {goal.notes && <details className="calculation-details"><summary>Notes</summary><p className="goal-notes">{goal.notes}</p></details>}
           <button type="button" disabled={busy} onClick={() => setForm({
             id: goal.id, name: goal.name, target: (goal.targetPence / 100).toFixed(2), progress: (goal.progressPence / 100).toFixed(2),
             targetDate: goal.targetDate ?? "", notes: goal.notes,

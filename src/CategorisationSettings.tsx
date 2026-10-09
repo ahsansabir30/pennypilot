@@ -17,12 +17,13 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   const [revision, setRevision] = useState(0);
   const [pendingDelete, setPendingDelete] = useState<{ type: "category" | "rule"; id: number } | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rulesError, setRulesError] = useState("");
 
   useEffect(() => {
     let active = true;
     invoke<CategoryRule[]>("list_category_rules")
-      .then((data) => { if (active) { setRules(data); setError(""); } })
-      .catch((error: unknown) => { if (active) setError(errorText(error)); })
+      .then((data) => { if (active) { setRules(data); setRulesError(""); } })
+      .catch((error: unknown) => { if (active) setRulesError(errorText(error)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [revision]);
@@ -74,12 +75,12 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   }
 
   return (
-    <section className="panel categorisation-panel" aria-labelledby="categorisation-title">
+    <section id="categorisation-panel" className="panel categorisation-panel" aria-labelledby="categorisation-title">
       <h2 id="categorisation-title">Categories and rules</h2>
-      <p className="policy-note">Rules match normalized merchant names only. Higher priority wins.
-        Equal highest priorities targeting different categories leave a conflict uncategorised.
-        Manual choices, including Uncategorised, are never reclassified unless you choose Use rules.</p>
+      <p className="policy-note">Higher priority wins. Conflicting ties stay uncategorised. Manual choices are protected.</p>
       {error && <p role="alert" className="form-message error">{error}</p>}
+      {rulesError && <div role="alert" className="form-message error">{rulesError}
+        <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
       <div className="categorisation-grid">
         <div>
@@ -111,7 +112,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
         </div>
         <div>
           <h3>Merchant rules</h3>
-          {loading ? <p role="status">Loading rules...</p> : <ul className="settings-list">
+          {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list">
             {rules.map((item) => <li key={item.id}>
               <span>{item.pattern} → {categories.find((category) => category.id === item.categoryId)?.name ?? "Unknown category"}
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
@@ -121,7 +122,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
                 <button disabled={busy} type="button" onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete rule {item.pattern}</button>
               </div>
             </li>)}
-            {rules.length === 0 && <li>No rules yet. Transactions without a match stay uncategorised.</li>}
+            {rules.length === 0 && <li>No rules yet.</li>}
           </ul>}
           <form className="transaction-form" onSubmit={(event) => void saveRule(event)}>
             <h3>{rule.id ? "Edit rule" : "New rule"}</h3>
@@ -152,7 +153,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
         <button disabled={busy} type="button" onClick={() => void remove()}>Confirm deletion</button>
         <button disabled={busy} type="button" onClick={() => setPendingDelete(null)}>Cancel deletion</button>
       </div>}
-      <button disabled={busy || loading} type="button" onClick={() => void perform(async () => {
+      <button disabled={busy || loading || Boolean(rulesError)} type="button" onClick={() => void perform(async () => {
         return await invoke<number>("reclassify_transactions");
       }, (count) => `${count} automatic transaction${count === 1 ? "" : "s"} reclassified. Manual choices preserved.`)}>Reclassify automatic transactions</button>
     </section>

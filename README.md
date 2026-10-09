@@ -17,6 +17,8 @@ The unlocked workspace now includes a financial overview backed by encrypted SQL
 
 The home dashboard surfaces up to three monthly category budgets (highest usage first) and three savings goals, with clear links to their complete editors. A count includes all over-limit budgets, even beyond the preview. Remaining allowance comes from recorded category expenses less refunds, not an assumed balance; savings progress is the amount you explicitly entered. These previews refresh after edits, category corrections and restore, and provide independent loading, error/retry and actionable empty states. Phone and tablet layouts show transactions as readable cards without horizontal scrolling, while desktop retains a searchable table. Manual category explanations are available under **Category details**; conflicting automatic rules remain visible. Bills, subscriptions and unusual-spending alerts are not fabricated from missing evidence.
 
+Only one management panel opens at a time. Budget and goal shortcuts focus their editor, including repeated clicks. Detailed periods, calculations, notes and file formats remain available in expandable sections instead of repeated helper paragraphs. Failed locks remain visible while the workspace stays unlocked; failed rule loads provide a retry rather than an empty list. Budget saves clear the form only on success. Restore keeps the private-data panel open so the safety-backup path and instructions remain visible.
+
 ## Deterministic categorisation
 
 - Merchant normalization lowercases Unicode letters, replaces punctuation/whitespace runs with a single space, and trims the result. Digits and accents are retained; original merchant text is kept. It does not guess away bank prefixes, branch numbers, or references.
@@ -41,7 +43,7 @@ The home dashboard surfaces up to three monthly category budgets (highest usage 
 
 ## Monthly budgets and insights
 
-Open **Monthly budgets and insights** from the dashboard. Limits are positive integer GBP pence for a specific category and calendar month; setting a limit does not roll it into other months. Category IDs link budgets to edited category names. A category referenced by a budget cannot be deleted until its budgets are removed.
+Open **Budgets** from the dashboard. Limits are positive integer GBP pence for a specific category and calendar month; setting a limit does not roll it into other months. Category IDs link budgets to edited category names. A category referenced by a budget cannot be deleted until its budgets are removed.
 
 Budget used is recorded expenses minus refunds in that transaction's current category, by validated source date. Transfers and income are excluded. Manual category corrections and explicit rule reclassification refresh usage. Refund-only periods may produce negative usage: the amount and remaining allowance retain that fact, while the progress bar floors at zero. Above-limit amounts and usage of at least 80% are marked using recorded evidence only.
 
@@ -55,7 +57,7 @@ The inputs are shown with each calculation. Goal progress is never inferred from
 
 ## Private transaction export
 
-Open **Private export and backup** and review the CSV date range, account, category, kind and literal search filter. Defaults copy the dashboard month and filters when the panel is opened. Export includes all matching rows, not just the current page. Both date endpoints are inclusive. A separate plaintext-disclosure checkbox is required; no file is uploaded or shared.
+Open **Export & backup** and review the CSV date range, account, category, kind and literal search filter. Defaults copy the dashboard month and filters when the panel is opened. Export includes all matching rows, not just the current page. Both date endpoints are inclusive. A separate plaintext-disclosure checkbox is required; no file is uploaded or shared.
 
 CSV format is UTF-8 with a BOM for spreadsheet compatibility, comma separators, CRLF record endings and quoted data cells with doubled embedded quotes. Source dates are `YYYY-MM-DD`; currency is explicitly `GBP`; amounts are positive decimal pounds with exactly two places **and** integer pence. `kind` supplies direction: refunds are not income and transfers are not spending. The whitelist contains transaction ID, source date, account name, kind, amounts/currency, category, original and normalized merchant, description and category provenance. It excludes source IDs, goal notes, workspace keys, credentials and passphrases. Spreadsheet-sensitive text beginning with `=`, `+`, `-`, `@` (including leading whitespace/control characters and full-width equivalents) is prefixed with an apostrophe. This intentionally changes report text for safety; CSV is not a backup or a lossless re-import format.
 
@@ -103,6 +105,7 @@ Install frontend dependencies and start the desktop app:
 
 ```sh
 npm ci
+npx playwright install chromium
 npm run tauri dev
 ```
 
@@ -112,7 +115,11 @@ Run the project verification gate:
 ./scripts/verify.sh
 ```
 
-The gate runs frontend linting, type-checking, tests, a high-severity dependency audit and build; Rust formatting, Clippy and tests; and a Tauri desktop build. GitHub Actions runs the same gate on macOS, Windows, and Linux. `scripts/publish-change.sh` refuses to publish unless this executable verification script succeeds.
+The gate runs frontend linting, type-checking, unit and Playwright tests, a high-severity dependency audit and build; Rust formatting, Clippy and tests; and a Tauri desktop build. GitHub Actions installs Chromium (including Linux dependencies) and runs the same gate on macOS, Windows, and Linux. `scripts/publish-change.sh` refuses to publish unless this executable verification script succeeds.
+
+Run browser workflows separately with `npm run test:e2e`. Chromium desktop and mobile projects use a dedicated Vite server on `127.0.0.1:1422` and isolated browser contexts; an existing server is not reused. Failure traces and results stay under `node_modules/.tmp/playwright-results`. On Linux, install browser prerequisites with `npx playwright install --with-deps chromium`.
+
+Browser tests exercise the real React interface with a strict, stateful, fictional-only Tauri IPC harness: records change on edits, summaries are calculated from those records, unsupported commands fail, and normal flows must have no console or page errors. They cover navigation, loading/retries, validation, transaction/category/rule controls, filters and pagination, budgets, savings, local export consent and restore feedback. These are frontend interaction tests, **not native desktop end-to-end tests**: they do not open a real workspace, access the OS credential store, write private files or prove encryption. Rust tests separately verify financial calculations, persistence, encryption and backup/restore safety.
 
 ## Privacy and test data
 

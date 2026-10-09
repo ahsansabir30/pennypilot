@@ -64,6 +64,8 @@ jobs:
             patchelf
       - name: Install frontend dependencies
         run: npm ci
+      - name: Install test browser
+        run: npx playwright install --with-deps chromium
       - name: Run verification gate
         run: ./scripts/verify.sh
         shell: bash
