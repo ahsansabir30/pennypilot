@@ -321,14 +321,17 @@ fn write_envelope(directory: &Path, envelope: &KeyEnvelope) -> WorkspaceResult<(
 }
 
 fn configure_database(connection: &Connection, database_key: &[u8; 32]) -> WorkspaceResult<()> {
-    let key_hex = hex::encode(database_key);
+    let key_hex = Zeroizing::new(hex::encode(database_key));
+    // Memory security must be on before the key is set so the key schedule is protected.
+    let setup_sql = Zeroizing::new(format!(
+        "PRAGMA cipher_memory_security = ON;\
+         PRAGMA key = \"x'{}'\";\
+         PRAGMA temp_store = MEMORY;\
+         PRAGMA foreign_keys = ON;",
+        key_hex.as_str()
+    ));
     connection
-        .execute_batch(&format!(
-            "PRAGMA key = \"x'{key_hex}'\";\
-             PRAGMA cipher_memory_security = ON;\
-             PRAGMA temp_store = MEMORY;\
-             PRAGMA foreign_keys = ON;"
-        ))
+        .execute_batch(&setup_sql)
         .map_err(|_| WorkspaceError::Storage)?;
     let _: String = connection
         .query_row("PRAGMA cipher_version", [], |row| row.get(0))
@@ -643,6 +646,33 @@ mod tests {
             "a replacement passphrase for testing",
         )
         .expect("unlock using replacement passphrase");
+    }
+
+    #[test]
+    fn configured_database_enables_memory_security_and_requires_its_key() {
+        let directory = tempfile::tempdir().expect("temporary directory");
+        let path = directory.path().join("configured.db");
+        let database_key = random_bytes::<32>().expect("database key");
+        {
+            let connection = Connection::open(&path).expect("open database");
+            configure_database(&connection, &database_key).expect("configure database");
+            let memory_security: String = connection
+                .query_row("PRAGMA cipher_memory_security", [], |row| row.get(0))
+                .expect("memory security status");
+            assert_eq!(memory_security, "1");
+            connection
+                .execute_batch("CREATE TABLE fictional_marker(id INTEGER);")
+                .expect("write encrypted page");
+        }
+
+        let wrong_key = random_bytes::<32>().expect("wrong key");
+        let connection = Connection::open(&path).expect("reopen database");
+        assert!(matches!(
+            configure_database(&connection, &wrong_key),
+            Err(WorkspaceError::InvalidPassphrase)
+        ));
+        let connection = Connection::open(&path).expect("reopen database");
+        configure_database(&connection, &database_key).expect("reopen with correct key");
     }
 
     #[test]
