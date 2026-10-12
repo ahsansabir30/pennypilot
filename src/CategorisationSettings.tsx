@@ -126,10 +126,11 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           </div>
           {visibleCategories.length === 0 && <p className="settings-empty">{categories.length === 0 ? "No categories yet." : "No matching categories."}</p>}
           <ul className="settings-list" aria-label="Categories">
-            {visibleCategories.map((item) => <li key={item.id}>
+            {visibleCategories.map((item) => <li className="settings-record" key={item.id}>
+              <button className="settings-record-open" type="button" aria-label={`Edit ${item.name}`} aria-haspopup="dialog"
+                disabled={busy} onClick={() => { setCategory(item); setPendingDelete(null); setError(""); setEditor("category"); }} />
               <span><i className="budget-category-dot" aria-hidden="true" style={{ background: item.color }} />{item.name}<small className="category-type">{item.categoryType}</small></span>
               <div className="management-row-actions">
-                <button type="button" aria-label={`Edit ${item.name}`} disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit</button>
                 <button type="button" className="destructive-action record-delete" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}
@@ -173,12 +174,13 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           </div>
           {categories.length === 0 && <p className="policy-note">Add a category before creating a rule.</p>}
           {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list" aria-label="Merchant rules">
-            {visibleRules.map((item) => <li key={item.id}>
+            {visibleRules.map((item) => <li className="settings-record" key={item.id}>
+              <button className="settings-record-open" disabled={busy} type="button" aria-label={`Edit rule ${item.pattern}`}
+                aria-haspopup="dialog" onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setPendingDelete(null); setError(""); setEditor("rule"); }} />
               <span>{item.pattern} → {categories.find((category) => category.id === item.categoryId)?.name ?? "Unknown category"}
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
               </span>
               <div className="management-row-actions">
-                <button disabled={busy} type="button" aria-label={`Edit rule ${item.pattern}`} onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setError(""); setEditor("rule"); }}>Edit</button>
                 <button disabled={busy} type="button" className="destructive-action record-delete" aria-label={`Delete rule ${item.pattern}`} title={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}

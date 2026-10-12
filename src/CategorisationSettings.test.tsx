@@ -73,7 +73,8 @@ describe("categorisation management", () => {
     expect(screen.getByRole("button", { name: "Delete Groceries" }).textContent).toBe("×");
     fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
     const edit = await screen.findByRole("button", { name: "Edit rule north market" });
-    expect(edit.textContent).toBe("Edit");
+    expect(edit.textContent).toBe("");
+    expect(edit.getAttribute("aria-haspopup")).toBe("dialog");
     expect(screen.queryByText("How rules work")).toBeNull();
     expect(screen.queryByText(/Higher priority wins|Conflicting ties stay uncategorised/)).toBeNull();
     const apply = screen.getByRole("button", { name: "Apply rules to automatic transactions" });

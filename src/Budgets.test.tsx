@@ -25,8 +25,10 @@ describe("monthly budgets", () => {
     expect(screen.queryByText("Recorded spending, not complete bank history.")).toBeNull();
     expect(screen.queryByLabelText("Comparison period")).toBeNull();
     const open = screen.getByRole("button", { name: "View transactions for Fictional Food" });
-    expect(open.textContent).toBe("");
+    expect(open.textContent).toBe("Transactions");
     expect(open.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(screen.getByRole("button", { name: "Edit budget for Fictional Food" }).textContent).toBe("");
+    expect(screen.getByRole("button", { name: "Remove budget for Fictional Food" }).textContent).toBe("×");
   });
 
   it("retains exact large usage and allowance without displaying comparisons", async () => {
@@ -101,6 +103,7 @@ describe("monthly budgets", () => {
     view.rerender(<Budgets month="2024-02" categories={categories} refreshKey={1} />);
     await waitFor(() => expect(mock).toHaveBeenCalledWith("list_budgets", expect.objectContaining({ month: "2024-02" })));
     fireEvent.click(await screen.findByRole("button", { name: "Remove budget for Fictional Food" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(mock).not.toHaveBeenCalledWith("delete_budget", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Confirm budget removal" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_budget", { month: "2024-02", categoryId: 1 }));

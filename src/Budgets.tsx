@@ -84,9 +84,13 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
           const exceeded = used > limit;
           const status = exceeded ? "Exceeded budget" : row.recordCount === 0 ? "No records yet" : used * 100n >= limit * 80n ? "Approaching limit" : "Within limit";
           return <li className="budget-row" key={row.categoryId}>
-            <button className="budget-row-open" type="button" aria-label={`View transactions for ${row.categoryName}`}
+            <button className="budget-row-open" type="button" aria-label={`Edit budget for ${row.categoryName}`}
               aria-haspopup="dialog" disabled={busy}
-              onClick={() => setTransactionCategory({ id: row.categoryId, key: requestKey })} />
+              onClick={() => {
+                setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) });
+                setEditing(true); setError(""); setMessage(""); setDeleting(null);
+                setShowForm(true);
+              }} />
             <div className="budget-row-main">
               <div className="budget-row-title">
                 <span className="budget-category-dot" aria-hidden="true"
@@ -104,12 +108,10 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
                 : `${formatPence(limit - used)} remaining allowance.`}</p>
             </div>
             <div className="budget-row-actions">
-              <button type="button" aria-label={`Edit budget for ${row.categoryName}`} disabled={busy} onClick={() => {
-                setForm({ categoryId: String(row.categoryId), limit: (row.limitPence / 100).toFixed(2) });
-                setEditing(true); setError(""); setMessage("");
-                setShowForm(true);
-              }}>Edit</button>
-              <button className="budget-remove" type="button" aria-label={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove</button>
+              <button type="button" aria-label={`View transactions for ${row.categoryName}`} aria-haspopup="dialog" disabled={busy}
+                onClick={() => setTransactionCategory({ id: row.categoryId, key: requestKey })}>Transactions</button>
+              <button className="budget-remove record-delete" type="button" aria-label={`Remove budget for ${row.categoryName}`}
+                title={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}><span aria-hidden="true">×</span></button>
             </div>
           </li>;
         })}

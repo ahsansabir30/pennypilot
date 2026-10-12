@@ -5,6 +5,7 @@ async function home(page: Page) {
   await page.goto("/#/transactions");
   await expect(page.getByRole("heading", { name: "Transactions", level: 1 })).toBeVisible();
   await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toHaveText("×");
 }
 
 async function navigate(page: Page, name: string) {
@@ -214,12 +215,28 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   await saveFoodBudget(page);
   await expect(page.getByText("£93.00 used / £100.00 limit", { exact: true })).toBeVisible();
   const trigger = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
-  await expect(trigger).toHaveText("");
-  expect(await trigger.evaluate((element) => getComputedStyle(element).borderRadius)).toBe("0px");
-  await trigger.hover();
-  expect(await trigger.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(240, 244, 239)");
+  await expect(trigger).toHaveText("Transactions");
+  const edit = page.getByRole("button", { name: "Edit budget for Fictional Food", exact: true });
+  await expect(edit).toHaveText("");
+  expect(await edit.evaluate((element) => getComputedStyle(element).borderRadius)).toBe("0px");
+  await edit.hover();
+  expect(await edit.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(240, 244, 239)");
+  const budgetRow = edit.locator("..");
+  const budgetBounds = await budgetRow.boundingBox();
   const categoryTitle = await page.getByRole("heading", { name: "Fictional Food", exact: true }).boundingBox();
+  expect(categoryTitle!.x - budgetBounds!.x).toBeGreaterThanOrEqual(16);
+  for (const text of await budgetRow.locator("p").all()) {
+    const bounds = await text.boundingBox();
+    expect(bounds!.x - budgetBounds!.x).toBeGreaterThanOrEqual(16);
+  }
   await page.mouse.click(categoryTitle!.x + categoryTitle!.width / 2, categoryTitle!.y + categoryTitle!.height / 2);
+  await expect(page.getByRole("dialog", { name: "Edit budget limit" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(edit).toBeFocused();
+  await edit.press("Space");
+  await expect(page.getByRole("dialog", { name: "Edit budget limit" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await trigger.click();
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions", exact: true });
   const rows = dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem");
   await expect(rows).toHaveCount(10);
@@ -450,7 +467,7 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await page.getByRole("combobox", { name: "Rule category", exact: true }).selectOption("1");
   await page.getByRole("button", { name: "Save rule", exact: true }).click();
   const editRule = page.getByRole("button", { name: "Edit rule fictional merchant", exact: true });
-  await expect(editRule).toHaveText("Edit");
+  await expect(editRule).toHaveText("");
   await expect(page.getByText("How rules work", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Higher priority wins|Conflicting ties stay uncategorised/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Apply rules to automatic transactions" })).toHaveText("Apply rules");
@@ -727,7 +744,10 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await expect(panel.getByText(/2024-02-01 through 2024-02-15|No comparable category records/)).toHaveCount(0);
   await expect(panel.getByRole("combobox", { name: "Comparison period", exact: true })).toHaveCount(0);
   expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "save_budget_preferences").length)).toBe(0);
-  await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
+  const removeBudget = panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true });
+  await expect(removeBudget).toHaveText("×");
+  await removeBudget.click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Cancel budget removal", exact: true }).click();
   await expect(panel.getByRole("group", { name: "Confirm budget removal" })).toHaveCount(0);
   await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
@@ -826,11 +846,16 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await expect(panel.getByRole("status")).toHaveText("Category saved.");
   expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "save_category").slice(-1)[0].args.input))
     .toMatchObject({ color: "#336699" });
-  await panel.getByRole("button", { name: "Edit Fictional Travel", exact: true }).click();
+  const editCategory = panel.getByRole("button", { name: "Edit Fictional Travel", exact: true });
+  await expect(editCategory).toHaveText("");
+  await editCategory.scrollIntoViewIfNeeded();
+  const categoryText = await editCategory.locator("..").locator(":scope > span").boundingBox();
+  await page.mouse.click(categoryText!.x + categoryText!.width / 2, categoryText!.y + categoryText!.height / 2);
   await expect(panel.getByLabel("Category type")).toBeDisabled();
   await panel.getByRole("button", { name: "Cancel category edit", exact: true }).click();
   await expect(panel.getByRole("dialog")).toHaveCount(0);
-  await panel.getByRole("button", { name: "Edit Fictional Travel", exact: true }).click();
+  await expect(editCategory).toBeFocused();
+  await editCategory.press("Enter");
   await panel.getByLabel("Category name").fill("Fictional Trips");
   await panel.getByRole("button", { name: "Save category", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit Fictional Trips", exact: true })).toBeVisible();
@@ -842,17 +867,24 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await panel.getByLabel("Priority").fill("50");
   await panel.getByRole("button", { name: "Save rule", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true })).toBeVisible();
-  await panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true }).click();
+  const editRule = panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true });
+  await expect(editRule).toHaveText("");
+  await editRule.scrollIntoViewIfNeeded();
+  const ruleText = await editRule.locator("..").locator(":scope > span").boundingBox();
+  await page.mouse.click(ruleText!.x + ruleText!.width / 2, ruleText!.y + ruleText!.height / 2);
   await panel.getByLabel("Match method").selectOption("exact");
   await panel.getByLabel("Rule enabled").uncheck();
   await panel.getByRole("button", { name: "Save rule", exact: true }).click();
   await expect(panel.getByText(/Priority 50 · Disabled/)).toBeVisible();
-  await panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true }).click();
+  await editRule.focus();
+  await editRule.press("Space");
   await panel.getByRole("button", { name: "Cancel rule edit", exact: true }).click();
   await expect(panel.getByRole("dialog")).toHaveCount(0);
+  await expect(editRule).toBeFocused();
   await panel.getByRole("button", { name: "Apply rules to automatic transactions", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText("Manual choices preserved.");
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Cancel deletion", exact: true }).click();
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm deletion", exact: true }).click();

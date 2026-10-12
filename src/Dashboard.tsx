@@ -784,8 +784,8 @@ function TransactionRow({
             <button className="cancel-delete" disabled={busy} onClick={onCancelDelete} type="button">Cancel</button>
           </>
         ) : (
-          <button className="delete-button" disabled={busy} onClick={onDelete} type="button" aria-label={`Delete ${displayName}`}>
-            Delete
+          <button className="delete-button record-delete" disabled={busy} onClick={onDelete} type="button" aria-label={`Delete ${displayName}`} title={`Delete ${displayName}`}>
+            <span aria-hidden="true">×</span>
           </button>
         )}
       </td>
