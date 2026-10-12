@@ -42,7 +42,7 @@ describe("categorisation management", () => {
       id: null, pattern: "Coffee Shop", matchType: "contains", categoryId: 1, priority: 40, enabled: true,
     } }));
     expect(mock).not.toHaveBeenCalledWith("reclassify_transactions");
-    fireEvent.click(screen.getByRole("button", { name: "Edit rule north market" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Edit rule north market" }));
     fireEvent.change(screen.getByLabelText("Match method"), { target: { value: "exact" } });
     fireEvent.click(screen.getByLabelText("Rule enabled"));
     fireEvent.click(screen.getByRole("button", { name: "Save rule" }));

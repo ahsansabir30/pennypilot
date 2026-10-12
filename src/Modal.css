@@ -16,6 +16,10 @@
 .categorisation-grid > div > .add-transaction-button { background: #285c42; border-color: #285c42; color: #fff; }
 .modal-close:disabled { opacity: .5; cursor: wait; }
 .finance-modal [role="alert"] { color: #943832; margin-bottom: 16px; }
+.category-editor-merchant { margin: 0 0 24px; color: #647269; font-size: 14px; overflow-wrap: anywhere; }
+.category-editor-field { display: grid; gap: 8px; color: #647269; font-size: 12px; font-weight: 600; }
+.category-editor-field select { min-height: 48px; font-size: 15px; }
+.category-editor-form .modal-actions { gap: 12px; margin-top: 24px; }
 @media (max-width: 620px) {
   .modal-backdrop { padding: 12px; }
   .finance-modal { padding: 18px; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }

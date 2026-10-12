@@ -326,10 +326,12 @@ describe("financial dashboard", () => {
     }));
   });
 
-  it("explains decisions and only clears a manual override through Use rules", async () => {
+  it("keeps categorisation provenance hidden and only clears an override through Use rules", async () => {
     render(<Dashboard onLock={vi.fn()} />);
     await screen.findByText("North Market");
-    expect(screen.getByText("Manual choice. Rules cannot overwrite this category.")).toBeTruthy();
+    expect(screen.queryByText("Manual choice. Rules cannot overwrite this category.")).toBeNull();
+    expect(screen.queryByText("Manual")).toBeNull();
+    expect(screen.queryByText("Automatic")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Edit category for North Market" }));
     fireEvent.click(screen.getByRole("button", { name: "Use rules for North Market" }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("reset_transaction_category", { transactionId: 8 }));
@@ -350,7 +352,7 @@ describe("financial dashboard", () => {
     render(<Dashboard onLock={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Edit category for North Market" }));
     const select = await screen.findByRole("combobox", { name: "Category for North Market" });
-    expect(select).toHaveProperty("value", "automatic");
+    expect(select).toHaveProperty("value", choice);
     fireEvent.change(select, { target: { value: choice } });
     fireEvent.click(screen.getByRole("button", { name: "Save category choice" }));
     await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("update_transaction_category", {
@@ -474,8 +476,8 @@ describe("financial dashboard", () => {
     });
     render(<Dashboard onLock={vi.fn()} />);
     expect(await screen.findByText(/Conflict: equal highest priority/)).toBeTruthy();
-    expect(screen.getByText("Rule conflict")).toBeTruthy();
-    expect(screen.getByText("Category details").closest("details")).toHaveProperty("open", false);
+    expect(screen.getByText("Category conflict")).toBeTruthy();
+    expect(screen.getByText("Category conflict").closest("details")).toHaveProperty("open", false);
     expect(screen.queryByRole("button", { name: "Use rules for North Market" })).toBeNull();
     navigate("categories");
     await waitFor(() => expect(screen.getByRole("button", { name: "Reclassify automatic transactions" })).toHaveProperty("disabled", false));

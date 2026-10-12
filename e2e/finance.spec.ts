@@ -110,6 +110,40 @@ test("transaction category popup only persists deliberate saves and retains fail
   await expect(trigger).toContainText("Uncategorised");
 });
 
+test("transaction filters align and the category editor separates its label, field and actions", async ({ page }, testInfo) => {
+  await home(page);
+  const search = page.getByRole("textbox", { name: "Search transactions", exact: true });
+  const searchBox = await search.evaluate((input) => {
+    const bounds = input.closest("label")!.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height, y: bounds.y };
+  });
+  for (const name of ["Filter by type", "Filter by category", "Sort transactions"]) {
+    const filterBox = await page.getByRole("combobox", { name, exact: true }).boundingBox();
+    expect(filterBox).not.toBeNull();
+    expect(Math.abs(filterBox!.height - searchBox.height)).toBeLessThanOrEqual(1);
+    if (testInfo.project.name === "desktop") {
+      expect(Math.abs(filterBox!.width - searchBox.width)).toBeLessThanOrEqual(1);
+      expect(Math.abs(filterBox!.y - searchBox.y)).toBeLessThanOrEqual(1);
+    }
+  }
+  await page.getByRole("combobox", { name: "Filter by type", exact: true }).selectOption("refund");
+  await expect(page.getByText("Refunds reduce spending. Transfers are excluded from totals.", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Fictional Merchant 3", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Edit category for Fictional Merchant 3", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Edit transaction category" });
+  const labelBox = await dialog.getByText("Category", { exact: true }).boundingBox();
+  const fieldBox = await dialog.getByRole("combobox").boundingBox();
+  const saveBox = await dialog.getByRole("button", { name: "Save category choice" }).boundingBox();
+  expect(labelBox).not.toBeNull();
+  expect(fieldBox).not.toBeNull();
+  expect(saveBox).not.toBeNull();
+  expect(fieldBox!.y - (labelBox!.y + labelBox!.height)).toBeGreaterThanOrEqual(8);
+  expect(saveBox!.y - (fieldBox!.y + fieldBox!.height)).toBeGreaterThanOrEqual(20);
+  await expect(dialog.getByRole("combobox")).toHaveValue("1");
+  await expect(dialog.getByRole("option", { name: /automatic|manual/i })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Cancel category choice" }).click();
+});
+
 test("earliest accepted source date keeps dashboard and budgets usable without inferred comparison", async ({ page }) => {
   await home(page);
   await page.getByRole("button", { name: "Add transaction", exact: true }).click();
@@ -248,10 +282,8 @@ test("transactions validate, close, save exact pence, preserve manual categories
   const last = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "create_transaction").slice(-1)[0]);
   expect(last.args.input).toMatchObject({ amountPence: 1234, transactionDate: "2024-02-15", categoryId: 1, manualCategory: true });
   const row = page.getByRole("row").filter({ has: page.getByText("Fictional Coffee Shop", { exact: true }) });
-  await expect(row.getByText("Manual", { exact: true })).toBeVisible();
-  await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeHidden();
-  await row.getByText("Category details", { exact: true }).click();
-  await expect(row.getByText("Manual choice preserved.", { exact: true })).toBeVisible();
+  await expect(row.getByText("Manual", { exact: true })).toHaveCount(0);
+  await expect(row.getByText("Manual choice preserved.", { exact: true })).toHaveCount(0);
   await row.getByRole("button", { name: "Edit category for Fictional Coffee Shop", exact: true }).click();
   const categoryDialog = page.getByRole("dialog", { name: "Edit transaction category" });
   await categoryDialog.getByRole("combobox", { name: "Category for Fictional Coffee Shop", exact: true }).selectOption("");
@@ -262,7 +294,7 @@ test("transactions validate, close, save exact pence, preserve manual categories
   await row.getByRole("button", { name: "Edit category for Fictional Coffee Shop", exact: true }).click();
   await categoryDialog.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true }).click();
   await expect(categoryDialog).toHaveCount(0);
-  await expect(row.getByText("Automatic", { exact: true })).toBeVisible();
+  await expect(row.getByText("Automatic", { exact: true })).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Use rules for Fictional Coffee Shop", exact: true })).toHaveCount(0);
   await row.getByRole("button", { name: "Delete Fictional Coffee Shop", exact: true }).click();
   await row.getByRole("button", { name: "Cancel", exact: true }).click();

@@ -742,21 +742,24 @@
 
 .transaction-filters {
   display: grid;
-  grid-template-columns: minmax(210px, 1fr) repeat(3, minmax(125px, auto));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: start;
   gap: 9px;
   margin: 21px 0 12px;
 }
 
 .transaction-filters select {
   min-width: 0;
-  min-height: 44px;
+  height: 46px;
   width: 100%;
   color: #68776d;
   font-size: 13px;
 }
+.transaction-filters > label { min-width: 0; }
 
 .search-field {
   display: flex;
+  height: 46px;
   min-width: 0;
   align-items: center;
   gap: 7px;
@@ -831,8 +834,6 @@
 .merchant-category-dot { position: absolute; right: -2px; bottom: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; }
 .category-control { min-width: 170px; max-width: 240px; }
 .category-control-meta { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.category-source { color: var(--finance-muted); font-size: 11px; font-weight: 600; }
-.category-control .use-rules-button { margin: 0; padding: 0 4px; border: 0; background: transparent; color: #285c42; font-size: 11px; font-weight: 600; }
 .category-details { min-width: 0; flex: 1; margin-top: 0; white-space: normal; }
 .category-details summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; min-height: 44px; width: fit-content; color: var(--finance-muted); font-size: 11px; cursor: pointer; }
 .category-details summary::before { content: "+"; margin-right: 6px; }

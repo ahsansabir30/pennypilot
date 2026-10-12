@@ -531,29 +531,27 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   </fieldset></Modal>
                 )}
                 {categoryEditor && <Modal title="Edit transaction category" busy={busy} onClose={() => { setCategoryEditor(null); setTransactionActionError(""); }}>
-                  <p>{categoryEditor.transaction.merchant || categoryEditor.transaction.description}</p>
+                  <p className="category-editor-merchant">{categoryEditor.transaction.merchant || categoryEditor.transaction.description}</p>
                   {(transactionError || financeError) && <p role="alert">{transactionError || financeError}</p>}
-                  <form className="transaction-form" onSubmit={(event) => {
+                  <form className="transaction-form category-editor-form" onSubmit={(event) => {
                     event.preventDefault();
-                    if (categoryEditor.choice !== "automatic") void updateCategory(categoryEditor.transaction.id, categoryEditor.choice);
+                    void updateCategory(categoryEditor.transaction.id, categoryEditor.choice);
                   }}>
-                    <label>Category
-                      <select className="category-select" disabled={busy || !currentFinance}
+                    <label className="category-editor-field"><span>Category</span>
+                      <select disabled={busy || !currentFinance}
                         aria-label={`Category for ${categoryEditor.transaction.merchant || categoryEditor.transaction.description}`}
                         value={categoryEditor.choice} onChange={(event) => setCategoryEditor({ ...categoryEditor, choice: event.currentTarget.value })}>
-                        {categoryEditor.transaction.categorySource !== "manual" && <option value="automatic" disabled>{categoryEditor.transaction.categoryName ?? "Uncategorised"} (automatic)</option>}
                         <option value="">Uncategorised</option>
                         {finance.categories.filter((category) => category.categoryType === (categoryEditor.transaction.kind === "income" ? "income" : "expense"))
                           .map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
                       </select>
                     </label>
-                    <p className="policy-note">Saving sets a manual choice. Use rules clears it.</p>
                     <div className="modal-actions">
-                      <button className="add-transaction-button" type="submit" disabled={busy || !currentFinance || categoryEditor.choice === "automatic"}>Save category choice</button>
+                      <button className="add-transaction-button" type="submit" aria-label="Save category choice" disabled={busy || !currentFinance}>Save</button>
                       {categoryEditor.transaction.categorySource === "manual" && <button type="button" disabled={busy || !currentFinance}
                         aria-label={`Use rules for ${categoryEditor.transaction.merchant || categoryEditor.transaction.description}`}
                         onClick={() => void clearManualCategory(categoryEditor.transaction.id)}>Use rules</button>}
-                      <button type="button" disabled={busy} onClick={() => { setCategoryEditor(null); setTransactionActionError(""); }}>Cancel category choice</button>
+                      <button type="button" aria-label="Cancel category choice" disabled={busy} onClick={() => { setCategoryEditor(null); setTransactionActionError(""); }}>Cancel</button>
                     </div>
                   </form>
                 </Modal>}
@@ -639,7 +637,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                           categories={finance.categories}
                           pendingDelete={pendingDelete === transaction.id}
                           busy={busy || !currentFinance}
-                          onEditCategory={() => { setTransactionActionError(""); setCategoryEditor({ transaction, choice: transaction.categorySource === "manual" ? String(transaction.categoryId ?? "") : "automatic" }); }}
+                          onEditCategory={() => { setTransactionActionError(""); setCategoryEditor({ transaction, choice: String(transaction.categoryId ?? "") }); }}
                           onDelete={() => setPendingDelete(transaction.id)}
                           onCancelDelete={() => setPendingDelete(null)}
                           onConfirmDelete={() => void deleteTransaction(transaction.id)}
@@ -681,9 +679,6 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     >Next</button>
                   </div>
                 </div>
-                <p className="accounting-policy">
-                  Refunds reduce spending. Transfers are excluded from totals.
-                </p>
               </section>}
             </>
           )}
@@ -773,16 +768,14 @@ function TransactionRow({
           >
             {transaction.categoryName ?? "Uncategorised"} <span aria-hidden="true">⌄</span>
           </button>
-          <div className="category-control-meta">
+          {transaction.categoryExplanation.startsWith("Conflict:") && <div className="category-control-meta">
             <details className="category-details">
               <summary>
-                <span className="category-source">{transaction.categorySource === "manual" ? "Manual" :
-                  transaction.categoryExplanation.startsWith("Conflict:") ? "Rule conflict" : "Automatic"}</span>
-                <span>Category details</span>
+                <span>Category conflict</span>
               </summary>
               <small className="category-explanation">{transaction.categoryExplanation}</small>
             </details>
-          </div>
+          </div>}
           </div>
         )}
       </td>
