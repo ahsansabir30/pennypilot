@@ -6,6 +6,7 @@ type StartStatus = "new" | "locked" | "unlocked";
 type Call = { command: string; args: Record<string, unknown> };
 declare global {
   interface Window {
+    __TAURI_INTERNALS__: { invoke: (command: string, args?: Record<string, unknown>) => Promise<unknown> };
     __pennyTest: {
       calls: Call[];
       failNext: (command: string, message: string, count?: number) => void;

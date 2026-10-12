@@ -31,6 +31,8 @@ Dashboard totals and transaction results are tied to their requested period, fil
 
 On narrow screens (up to 620px), Transactions uses a compact stacked heading and full-width Add button. Search spans the width; type/category filters share a row and sorting occupies its own full-width row. Wider tablet layouts keep the three dropdowns together. Transaction records retain their accessible mobile card layout.
 
+All workspace pages adapt to window width: navigation uses three equal columns on tablets and two on phones, overview previews stack on tablets, and record headings use full-width Add actions on phones. Budget actions, settings rows and tabs keep their touch targets without crowding text. Export/backup fields stack on phones while consent remains visible. Popups stay within the viewport and scroll independently. Browser regression coverage checks every page at 320, 480, 768 and 1024px widths.
+
 ## Deterministic categorisation
 
 - Merchant normalization lowercases Unicode letters, replaces punctuation/whitespace runs with a single space, and trims the result. Digits and accents are retained; original merchant text is kept. It does not guess away bank prefixes, branch numbers, or references.

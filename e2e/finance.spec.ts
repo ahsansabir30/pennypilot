@@ -64,6 +64,69 @@ test("narrow transactions keep heading actions compact and filters in balanced r
   }
 });
 
+test("all workspace pages adapt across narrow, tablet and desktop widths", async ({ page }, testInfo) => {
+  await home(page);
+  await page.evaluate(async () => {
+    const invoke = window.__TAURI_INTERNALS__.invoke;
+    await invoke("save_budget", { input: { month: "2024-02", categoryId: 1, limitPence: 10000 } });
+    await invoke("save_savings_goal", { input: { id: null, name: "Fictional emergency savings", targetPence: 500000,
+      progressPence: 120000, targetDate: "2025-06-30", notes: "Fictional notes" } });
+    await invoke("save_category_rule", { input: { id: null, pattern: "fictional merchant", categoryId: 1,
+      matchType: "contains", priority: 20, enabled: true } });
+  });
+  for (const width of [320, 480, 768, 1024]) {
+    await page.setViewportSize({ width, height: 800 });
+    for (const name of ["Overview", "Transactions", "Budgets", "Savings", "Categories & Rules", "Export & Backup"]) {
+      await navigate(page, name);
+      if (name === "Budgets") await page.getByRole("button", { name: "Edit budget for Fictional Food" }).waitFor();
+      if (name === "Savings") await page.getByRole("button", { name: "Edit goal Fictional emergency savings" }).waitFor();
+      const nav = page.getByRole("navigation", { name: "Workspace pages" });
+      const links = await nav.getByRole("link").all();
+      for (const link of links) {
+        const bounds = (await link.boundingBox())!;
+        expect(bounds.width).toBeGreaterThan(44);
+        expect(bounds.height).toBeGreaterThanOrEqual(44);
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      }
+      for (const control of await page.locator('main input:visible, main select:visible, main button:visible').all()) {
+        const bounds = (await control.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+      }
+      if (width <= 620) {
+        for (const heading of await page.locator(".management-heading:visible").all()) {
+          const headingBounds = (await heading.boundingBox())!;
+          const actionBounds = (await heading.getByRole("button").boundingBox())!;
+          expect(actionBounds.width).toBe(headingBounds.width);
+        }
+        if (name === "Export & Backup") {
+          expect(await page.locator(".transaction-form-grid").first().evaluate((element) =>
+            getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(1);
+        }
+      }
+      if (name === "Categories & Rules") {
+        await page.getByRole("tab", { name: "Rules", exact: true }).click();
+        await page.getByRole("button", { name: "Edit rule fictional merchant" }).waitFor();
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`${name.replaceAll(/[^a-z]/gi, "-")}-${width}.png`), fullPage: true });
+      const adds: Record<string, string> = { Transactions: "Add transaction", Budgets: "Add budget", Savings: "Add savings goal",
+        "Categories & Rules": "Add rule" };
+      if (adds[name]) {
+        await page.getByRole("button", { name: adds[name], exact: true }).click();
+        const dialog = page.getByRole("dialog");
+        const bounds = (await dialog.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        expect(bounds.y).toBeGreaterThanOrEqual(0);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(800);
+        await page.keyboard.press("Escape");
+      }
+    }
+  }
+});
+
 test("enabled page and popup buttons change colour on hover without changing disabled controls", async ({ page }) => {
   await home(page);
   async function expectHoverChange(button: ReturnType<Page["getByRole"]>) {
