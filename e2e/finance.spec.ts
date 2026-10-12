@@ -41,6 +41,26 @@ test("brand artwork loads under the app CSP and matches the browser icon", async
   }
 });
 
+test("ordinary browser access explains the desktop requirement without native IPC errors", async ({ browser }) => {
+  const context = await browser.newContext();
+  try {
+    const page = await context.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    page.on("console", (message) => { if (message.type() === "error") errors.push(message.text()); });
+    await page.goto("http://127.0.0.1:1422/#/transactions");
+    await expect(page.getByRole("heading", { name: "Open PennyPilot on desktop" })).toBeVisible();
+    await expect(page.getByText("npm run tauri dev", { exact: true })).toBeVisible();
+    await expect(page.getByLabel("Passphrase", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Try again" })).toHaveCount(0);
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    expect(await page.evaluate(() => "__TAURI_INTERNALS__" in window)).toBe(false);
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});
+
 test("narrow transactions keep heading actions compact and filters in balanced rows", async ({ page }, testInfo) => {
   for (const width of [360, 620, 768]) {
     await page.setViewportSize({ width, height: 900 });

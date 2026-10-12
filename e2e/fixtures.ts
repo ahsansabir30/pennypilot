@@ -302,6 +302,7 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
           default: throw new Error(`Unimplemented test IPC command: ${command}`);
         }
       }
+      Object.defineProperty(window, "isTauri", { value: true, configurable: true });
       Object.defineProperty(window, "__TAURI_INTERNALS__", { value: { invoke }, configurable: true });
     }, { initialStatus: startStatus, blockedCommand, largeAggregates });
     await runPage(page);

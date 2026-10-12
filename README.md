@@ -150,6 +150,8 @@ npx playwright install chromium
 npm run tauri dev
 ```
 
+Opening the Vite URL in an ordinary browser does not provide access to native workspace storage. It displays a desktop-app requirement instead of calling unavailable Tauri APIs or collecting a passphrase. Use the desktop window opened by `npm run tauri dev` for real workspace operations; browser tests use an explicitly fictional IPC harness.
+
 Run the project verification gate:
 
 ```sh

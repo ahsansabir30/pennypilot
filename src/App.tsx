@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import "./App.css";
 import { validateNewPassphrase } from "./security";
 import Dashboard from "./Dashboard";
@@ -22,6 +22,7 @@ function App() {
   }, []);
 
   async function refreshStatus() {
+    if (!isTauri()) return;
     try {
       const nextStatus = await invoke<WorkspaceStatus>("workspace_status");
       setStatus(nextStatus);
@@ -123,7 +124,18 @@ function App() {
         </div>
 
         <section className="workspace-card" aria-label="Secure workspace">
-          {status === null ? (
+          {!isTauri() ? (
+            <>
+              <span className="eyebrow">Desktop app required</span>
+              <h2>Open PennyPilot on desktop</h2>
+              <p className="card-description">
+                Your encrypted workspace is available only in the PennyPilot desktop app, not in a web browser.
+              </p>
+              <p className="card-description">
+                For local development, run <code>npm run tauri dev</code> and use the desktop window that opens.
+              </p>
+            </>
+          ) : status === null ? (
             <div className="loading-state" role="status">
               <span className="spinner" />
               <span>Preparing your secure workspace…</span>

@@ -1,10 +1,11 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { invoke } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import App from "./App";
 
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
+  isTauri: vi.fn(),
 }));
 
 const invokeMock = vi.mocked(invoke);
@@ -34,6 +35,7 @@ const emptyTransactions = {
 describe("workspace setup and access", () => {
   beforeEach(() => {
     invokeMock.mockReset();
+    vi.mocked(isTauri).mockReturnValue(true);
     invokeMock.mockImplementation(async (command) => {
       if (command === "workspace_status") return "locked";
       if (command === "list_finance_data") return emptyFinanceData;
@@ -49,6 +51,17 @@ describe("workspace setup and access", () => {
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("explains browser access without invoking native APIs or asking for credentials", async () => {
+    vi.mocked(isTauri).mockReturnValue(false);
+    render(<App />);
+    expect(screen.getByRole("heading", { name: "Open PennyPilot on desktop" })).toBeTruthy();
+    expect(screen.getByText(/npm run tauri dev/)).toBeTruthy();
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText("Passphrase")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("keeps the same brand artwork through unlock and lock", async () => {
