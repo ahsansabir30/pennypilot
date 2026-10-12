@@ -340,6 +340,7 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await checkLayout("budgets");
   await navigate(page, "Overview");
   const budgetPreview = page.getByRole("article", { name: "Budgets", exact: true });
+  await expect(page.getByText("Recorded activity · GBP. Net cash flow is not an account balance.", { exact: true })).toHaveCount(0);
   await expect(budgetPreview).toContainText("£108.00 of £100.00");
   await expect(budgetPreview.getByText("1 category", { exact: true })).toBeVisible();
   const budgetTitle = await budgetPreview.getByRole("heading", { name: "Budgets", exact: true }).boundingBox();
@@ -362,8 +363,8 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await page.getByRole("button", { name: "Save savings goal" }).click();
   const editGoal = page.getByRole("button", { name: "Edit goal Fictional rainy day" });
   await expect(editGoal).toHaveText("Edit");
-  await page.getByText("Calculation details", { exact: true }).click();
-  await expect(page.getByText(/not a bank balance/)).toBeVisible();
+  await expect(page.getByText("Calculation details", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/not a bank balance|No completion predicted|No target date/)).toHaveCount(0);
   await editGoal.click();
   await expect(page.getByRole("dialog", { name: "Edit savings goal" })).toBeVisible();
   await page.keyboard.press("Escape");
@@ -739,8 +740,8 @@ test("savings add, invalid values, explicit progress, edit/cancel, notes and del
   await navigate(page, "Overview");
   await expect(page.getByRole("article", { name: "Savings", exact: true })).toContainText("Target reached");
   await navigate(page, "Savings");
-  await panel.getByText("Calculation details", { exact: true }).click();
-  await expect(panel.getByText(/your preference, not a forecast/)).toBeVisible();
+  await expect(panel.getByText("Calculation details", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText("2028-02-29", { exact: true })).toBeVisible();
   await panel.getByText("Notes", { exact: true }).click();
   await expect(panel.getByText("Fictional note only", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Delete goal Fictional holiday", exact: true }).click();

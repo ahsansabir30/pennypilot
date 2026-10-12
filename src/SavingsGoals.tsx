@@ -71,8 +71,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
           <progress aria-label={`${goal.name} savings progress`} value={Math.min(100, percent)} max={100} />
           <p>{(Math.round(percent * 10) / 10).toFixed(1)}% · {formatPence(remaining)} remaining</p>
           {extra > 0 && <p>Overfunded by {formatPence(extra)}; progress is retained.</p>}
-          <details className="calculation-details"><summary>Calculation details</summary><p className="policy-note">Entered progress, not a bank balance. No completion predicted. Inputs: entered progress {formatPence(goal.progressPence)} ÷ target {formatPence(goal.targetPence)}.
-            {goal.targetDate ? ` Target date: ${goal.targetDate} (your preference, not a forecast).` : " No target date."}</p></details>
+          {goal.targetDate && <p>Target date: <time dateTime={goal.targetDate}>{goal.targetDate}</time></p>}
           {goal.notes && <details className="calculation-details"><summary>Notes</summary><p className="goal-notes">{goal.notes}</p></details>}
           <div className="management-row-actions">
           <button type="button" aria-label={`Edit goal ${goal.name}`} disabled={busy} onClick={() => { setError(""); setShowForm(true); setForm({

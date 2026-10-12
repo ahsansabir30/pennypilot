@@ -382,7 +382,8 @@ describe("financial dashboard", () => {
     expect(screen.getByRole("combobox", { name: "Filter by category" })).toHaveProperty("value", "");
     expect(screen.queryByRole("button", { name: "Clear filters" })).toBeNull();
     navigate("overview");
-    expect(screen.getByText(/not an account balance/)).toBeTruthy();
+    expect(screen.queryByText(/Recorded activity · GBP|not an account balance/)).toBeNull();
+    expect(screen.getByText("Net cash flow")).toBeTruthy();
   });
 
   it("refreshes home previews after saving a budget or editing entered savings progress", async () => {

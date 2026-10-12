@@ -312,6 +312,10 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
       .filter((button) => !button.hasAttribute("disabled") && button.getBoundingClientRect().height > 0 && button.getBoundingClientRect().height < 44)
       .map((button) => button.textContent?.trim()));
     expect(undersized, "Visible enabled buttons need at least 44px touch targets").toEqual([]);
+    const missingPointers = await page.getByRole("button").evaluateAll((buttons) => buttons
+      .filter((button) => button.matches(":enabled") && button.getBoundingClientRect().height > 0 && getComputedStyle(button).cursor !== "pointer")
+      .map((button) => button.textContent?.trim()));
+    expect(missingPointers, "Visible enabled buttons use a pointer cursor").toEqual([]);
   },
 });
 

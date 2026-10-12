@@ -329,7 +329,6 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   tone={BigInt(monthly.netCashFlowPence) < 0n ? "negative" : "net"}
                 />
               </section>
-              <p className="policy-note">Recorded activity · GBP. Net cash flow is not an account balance.</p>
               </>}
               {activePage === "overview" && <FinancialHighlights month={month} refreshKey={refreshKey + planningRevision} />}
               <fieldset className="finance-record-controls" disabled={!currentFinance}>

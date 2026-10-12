@@ -16,21 +16,17 @@ describe("savings goals", () => {
     expect(await screen.findByText("£0.00 / £100.00 target")).toBeTruthy();
     expect(screen.getByText("0.0% · £100.00 remaining")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 0);
-    expect(screen.getByText(/not a bank balance/)).toBeTruthy();
-    expect(screen.getByText(/completion predicted/)).toBeTruthy();
+    expect(screen.queryByText(/not a bank balance|completion predicted|No target date/)).toBeNull();
     expect(mock).not.toHaveBeenCalledWith("list_finance_data", expect.anything());
   });
 
-  it("keeps concise actions accessible and financial caveats expandable", async () => {
+  it("keeps concise actions accessible without calculation prose", async () => {
     render(<SavingsGoals />);
     const edit = await screen.findByRole("button", { name: "Edit goal Fictional rainy day" });
     expect(edit.textContent).toBe("Edit");
     expect(screen.getByRole("button", { name: "Delete goal Fictional rainy day" }).textContent).toBe("Delete");
-    const summary = screen.getByText("Calculation details");
-    expect(summary.closest("details")?.open).toBe(false);
-    fireEvent.click(summary);
-    expect(summary.closest("details")?.open).toBe(true);
-    expect(screen.getByText(/not a bank balance/)).toBeTruthy();
+    expect(screen.queryByText("Calculation details")).toBeNull();
+    expect(screen.queryByText(/not a bank balance/)).toBeNull();
     expect(screen.queryByText("Manual progress. No money is moved.")).toBeNull();
   });
 
@@ -40,7 +36,8 @@ describe("savings goals", () => {
     expect(await screen.findByText("123.5% · £0.00 remaining")).toBeTruthy();
     expect(screen.getByText("Overfunded by £23.45; progress is retained.")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 100);
-    expect(screen.getByText(/Target date: 2028-02-29 \(your preference, not a forecast\)/)).toBeTruthy();
+    expect(screen.getByText("2028-02-29").getAttribute("datetime")).toBe("2028-02-29");
+    expect(screen.queryByText(/forecast/)).toBeNull();
   });
 
   it("edits names, target, explicitly entered progress, date and notes using exact pence", async () => {
