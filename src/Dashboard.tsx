@@ -418,7 +418,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 <a className="lock-button" href="#/transactions">View transactions</a>
               </div>}
               {activePage === "transactions" && <section className="panel transactions-panel" aria-labelledby="dashboard-title">
-                <div className="management-heading">
+                <div className="management-heading transactions-heading">
                   <h2>Recorded transactions</h2>
                   <button className="add-transaction-button" disabled={busy || !currentFinance} onClick={openForm} type="button">
                     <span aria-hidden="true">＋</span> Add transaction

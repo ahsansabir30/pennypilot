@@ -24,6 +24,46 @@ async function addExpense(page: Page, merchant = "Fictional Coffee Shop", amount
   await expect(page.getByText(merchant, { exact: true })).toBeVisible();
 }
 
+test("narrow transactions keep heading actions compact and filters in balanced rows", async ({ page }, testInfo) => {
+  for (const width of [360, 620, 768]) {
+    await page.setViewportSize({ width, height: 900 });
+    await home(page);
+    const heading = page.getByRole("heading", { name: "Recorded transactions" });
+    const add = page.getByRole("button", { name: "Add transaction", exact: true });
+    const search = page.getByRole("textbox", { name: "Search transactions" }).locator("..");
+    const type = page.getByRole("combobox", { name: "Filter by type", exact: true });
+    const category = page.getByRole("combobox", { name: "Filter by category", exact: true });
+    const sort = page.getByRole("combobox", { name: "Sort transactions", exact: true });
+    const headingBox = (await heading.boundingBox())!;
+    const addBox = (await add.boundingBox())!;
+    const searchBox = (await search.boundingBox())!;
+    const typeBox = (await type.boundingBox())!;
+    const categoryBox = (await category.boundingBox())!;
+    const sortBox = (await sort.boundingBox())!;
+    expect(typeBox.y).toBe(categoryBox.y);
+    expect(searchBox.width).toBeGreaterThan(typeBox.width);
+    if (width <= 620) {
+      expect(addBox.x).toBe(headingBox.x);
+      expect(addBox.y - headingBox.y - headingBox.height).toBeLessThanOrEqual(16);
+      expect(addBox.width).toBe(searchBox.width);
+      expect(sortBox.x).toBe(searchBox.x);
+      expect(sortBox.width).toBe(searchBox.width);
+      expect(sortBox.y).toBeGreaterThanOrEqual(typeBox.y + typeBox.height);
+    } else {
+      expect(sortBox.y).toBe(typeBox.y);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`transactions-${width}.png`), fullPage: true });
+    await add.click();
+    await expect(page.getByRole("dialog", { name: "Add transaction", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await category.selectOption("1");
+    await type.selectOption("expense");
+    await sort.selectOption("amount_desc");
+    await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+  }
+});
+
 test("enabled page and popup buttons change colour on hover without changing disabled controls", async ({ page }) => {
   await home(page);
   async function expectHoverChange(button: ReturnType<Page["getByRole"]>) {

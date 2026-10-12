@@ -1226,8 +1226,12 @@
   }
 
   .transactions-heading {
-    align-items: flex-start;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
   }
+  .transactions-heading h2 { margin: 0; font-size: 18px; }
+  .finance-shell .transactions-heading .add-transaction-button { width: 100%; margin: 0; }
 
   .transactions-heading p {
     max-width: 230px;
@@ -1255,11 +1259,13 @@
 
   .transaction-filters {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    margin-top: 16px;
   }
 
   .transaction-filters .search-field {
     grid-column: 1 / -1;
   }
+  .transaction-filters > label:last-child { grid-column: 1 / -1; }
 
   .category-details summary { min-height: 44px; display: flex; align-items: center; }
   .preview-row { flex-wrap: wrap; gap: 4px 12px; }

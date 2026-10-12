@@ -29,6 +29,8 @@ Detailed periods, calculations, notes, rule precedence and file formats remain a
 
 Dashboard totals and transaction results are tied to their requested period, filters, page and refresh revision. Pending or failed requests do not display previous results as current data. Record editors are disabled while current finance metadata is unavailable; restore feedback remains visible for retry. Budget usage is similarly hidden during reloads. Deleting the last record on a final page returns to the last valid page rather than implying the month has no records.
 
+On narrow screens (up to 620px), Transactions uses a compact stacked heading and full-width Add button. Search spans the width; type/category filters share a row and sorting occupies its own full-width row. Wider tablet layouts keep the three dropdowns together. Transaction records retain their accessible mobile card layout.
+
 ## Deterministic categorisation
 
 - Merchant normalization lowercases Unicode letters, replaces punctuation/whitespace runs with a single space, and trims the result. Digits and accents are retained; original merchant text is kept. It does not guess away bank prefixes, branch numbers, or references.
