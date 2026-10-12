@@ -55,6 +55,8 @@ for (const editor of popupEditors) {
     expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
     const first = dialog.getByRole("button", { name: `Close ${editor.add}`, exact: true });
     const cancel = dialog.getByRole("button", { name: /^Cancel/ });
+    await expect(cancel).toHaveText("Cancel");
+    await expect(dialog.getByRole("button", { name: editor.save, exact: true })).toHaveText("Save");
     await cancel.focus();
     await page.keyboard.press("Tab");
     await expect(first).toBeFocused();
@@ -203,7 +205,7 @@ test("future budget drilldown is explicitly empty without requesting whole-month
   await home(page);
   await navigate(page, "Budgets");
   await page.getByLabel("Dashboard month", { exact: true }).fill("2024-03");
-  await expect(page.getByText("Future month; no elapsed period.", { exact: false })).toBeVisible();
+  await expect(page.getByText("No budgets this month.", { exact: true })).toBeVisible();
   await saveFoodBudget(page);
   const count = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").length);
   await page.getByRole("button", { name: "View transactions for Fictional Food", exact: true }).click();
@@ -246,6 +248,8 @@ test("transaction category popup only persists deliberate saves and retains fail
   await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
   const dialog = page.getByRole("dialog", { name: "Edit transaction category" });
   await trigger.click();
+  await expect(dialog.getByRole("button", { name: "Save category choice" })).toHaveText("Save");
+  await expect(dialog.getByRole("button", { name: "Cancel category choice" })).toHaveText("Cancel");
   await dialog.getByLabel("Category for Fictional Merchant 16", { exact: true }).selectOption("");
   await dialog.getByRole("button", { name: "Cancel category choice" }).click();
   await expect(trigger).toContainText("Fictional Food");
@@ -272,7 +276,8 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await expect(page.getByRole("button", { name: "Edit budget for Fictional Food" })).toBeVisible();
   await expect(page.getByText("Period details", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Calculation details", { exact: true })).toHaveCount(0);
-  await expect(page.getByText(/Expenses less refunds; transfers and income excluded/)).toBeVisible();
+  await expect(page.getByText(/Recorded spending, not complete bank history|Expenses less refunds; transfers and income excluded/)).toHaveCount(0);
+  await expect(page.getByRole("combobox", { name: "Comparison period" })).toHaveCount(0);
 
   async function checkLayout(name: string) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
@@ -384,10 +389,8 @@ test("earliest accepted source date keeps dashboard and budgets usable without i
   await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("10.00");
   await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
   await expect(page.getByText("£1.23 used / £10.00 limit", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Previous period is outside the supported date range/)).toBeVisible();
-  await expect(page.getByText(/no change inferred/)).toBeVisible();
-  await page.getByLabel("Comparison period", { exact: true }).selectOption("full_month");
-  await expect(page.getByText(/no change inferred/)).toBeVisible();
+  await expect(page.getByText(/Previous period is outside the supported date range|no change inferred/)).toHaveCount(0);
+  await expect(page.getByLabel("Comparison period", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("alert")).toHaveCount(0);
 });
 
@@ -594,11 +597,9 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("250.01");
   await panel.getByRole("button", { name: "Cancel budget", exact: true }).click();
   await expect(panel.getByRole("dialog")).toHaveCount(0);
-  await expect(panel.getByText(/2024-02-01 through 2024-02-15/)).toBeVisible();
-  await expect(panel.getByText(/No comparable category records/)).toBeVisible();
-  await panel.getByRole("combobox", { name: "Comparison period", exact: true }).selectOption("full_month");
-  await expect(panel.getByRole("status").filter({ hasText: "Comparison preference saved." })).toHaveText("Comparison preference saved.");
-  await expect(panel.getByRole("combobox", { name: "Comparison period", exact: true })).toHaveValue("full_month");
+  await expect(panel.getByText(/2024-02-01 through 2024-02-15|No comparable category records/)).toHaveCount(0);
+  await expect(panel.getByRole("combobox", { name: "Comparison period", exact: true })).toHaveCount(0);
+  expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "save_budget_preferences").length)).toBe(0);
   await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
   await panel.getByRole("button", { name: "Cancel budget removal", exact: true }).click();
   await expect(panel.getByRole("group", { name: "Confirm budget removal" })).toHaveCount(0);
@@ -988,7 +989,7 @@ test("pending transaction saves disable duplicate submits and close, then recalc
   await page.getByLabel("Description", { exact: true }).fill("Fictional pending expense");
   await page.getByRole("button", { name: "Save transaction", exact: true }).click();
   await expect(page.getByRole("button", { name: "Close Add transaction" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Saving…", exact: true })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Save transaction", exact: true })).toBeDisabled();
   expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "create_transaction").length)).toBe(1);
   await page.evaluate(() => window.__pennyTest.release("create_transaction"));
   await expect(page.getByText("Fictional pending expense", { exact: true })).toBeVisible();

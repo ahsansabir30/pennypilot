@@ -116,8 +116,8 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
             </div>
             </fieldset>
             <div className="modal-actions">
-            <button disabled={busy} type="submit">Save category</button>
-            <button disabled={busy} type="button" onClick={() => { setCategory(newCategory); setEditor(null); setError(""); }}>Cancel category edit</button>
+            <button disabled={busy} type="submit" aria-label="Save category">Save</button>
+            <button disabled={busy} type="button" aria-label="Cancel category edit" onClick={() => { setCategory(newCategory); setEditor(null); setError(""); }}>Cancel</button>
             </div>
           </form></Modal>}
         </div>
@@ -166,8 +166,8 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
             </div>
             </fieldset>
             <div className="modal-actions">
-            <button disabled={busy} type="submit">Save rule</button>
-            <button disabled={busy} type="button" onClick={() => { setRule(newRule); setEditor(null); setError(""); }}>Cancel rule edit</button>
+            <button disabled={busy} type="submit" aria-label="Save rule">Save</button>
+            <button disabled={busy} type="button" aria-label="Cancel rule edit" onClick={() => { setRule(newRule); setEditor(null); setError(""); }}>Cancel</button>
             </div>
           </form></Modal>}
         </div>

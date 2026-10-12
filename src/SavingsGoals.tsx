@@ -56,7 +56,6 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Your goals</h2>
     <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setForm(empty); setError(""); setShowForm(true); }}>Add savings goal</button>
     </div>
-    <p className="policy-note">Manual progress. No money is moved.</p>
     {error && !showForm && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading savings goals...</p>}
@@ -106,8 +105,8 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
       </div>
       </fieldset>
       <div className="modal-actions">
-        <button type="submit" disabled={busy}>Save savings goal</button>
-        <button type="button" disabled={busy} onClick={() => { setForm(empty); setShowForm(false); setError(""); }}>Cancel goal edit</button>
+        <button type="submit" aria-label="Save savings goal" disabled={busy}>Save</button>
+        <button type="button" aria-label="Cancel goal edit" disabled={busy} onClick={() => { setForm(empty); setShowForm(false); setError(""); }}>Cancel</button>
       </div>
     </form></Modal>}
   </section>;

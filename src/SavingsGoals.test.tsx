@@ -31,7 +31,7 @@ describe("savings goals", () => {
     fireEvent.click(summary);
     expect(summary.closest("details")?.open).toBe(true);
     expect(screen.getByText(/not a bank balance/)).toBeTruthy();
-    expect(screen.getByText("Manual progress. No money is moved.")).toBeTruthy();
+    expect(screen.queryByText("Manual progress. No money is moved.")).toBeNull();
   });
 
   it("retains overfunding and labels dates as preferences, not forecasts", async () => {

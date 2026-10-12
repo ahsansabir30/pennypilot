@@ -71,24 +71,10 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setShowForm(true);
     }}>Add budget</button>
     </div>
-    <p className="policy-note">Recorded spending, not complete bank history.</p>
     {displayedError && !showForm && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}
     {current && <>
-      <div className="budget-toolbar">
-      <p className="policy-note">{current.periodEnd ? `${month}-01 through ${current.periodEnd}.` : "Future month; no elapsed period."}
-        {" "}Expenses less refunds; transfers and income excluded. Limits apply only to this month.
-        {current.previousEnd && ` Comparison: ${current.previousMonth}-01 through ${current.previousEnd}.`}
-        {current.previousMonth === null && " Previous period is outside the supported date range; no comparison available."}</p>
-      <label className="management-preference">Comparison period
-        <select aria-label="Comparison period" disabled={busy} value={current.comparisonMode}
-          onChange={(event) => void mutate("save_budget_preferences", { comparisonMode: event.currentTarget.value }, "Comparison preference saved.")}>
-          <option value="same_day">Same elapsed days</option>
-          <option value="full_month">Full previous month (unequal periods)</option>
-        </select>
-      </label>
-      </div>
       {current.rows.length === 0 && <p>No budgets this month.</p>}
       <ul className="budget-list" aria-label="Category budgets">
         {current.rows.map((row) => {
@@ -124,10 +110,6 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
               }}>Edit</button>
               <button className="budget-remove" type="button" aria-label={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}>Remove</button>
             </div>
-            <p className="budget-comparison policy-note">{row.previousUsedPence === null
-              ? "No comparable category records in the previous period; no change inferred."
-              : `Previous recorded net spending: ${formatPence(row.previousUsedPence)} from ${row.previousRecordCount} records.${row.recordCount > 0 ? ` Recorded change: ${formatPence(used - BigInt(row.previousUsedPence))}.` : " No current records for a change comparison."}`}</p>
-            {used < 0n && <p className="budget-comparison policy-note">Refunds exceed expenses; only the progress bar is floored at zero.</p>}
           </li>;
         })}
       </ul>
@@ -159,11 +141,11 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
         </span></div>
       </div>
       <div className="modal-actions">
-        <button type="submit" disabled={busy || eligible.length === 0}>Save monthly budget</button>
-        <button type="button" disabled={busy} onClick={() => {
+        <button type="submit" aria-label="Save monthly budget" disabled={busy || eligible.length === 0}>Save</button>
+        <button type="button" aria-label="Cancel budget" disabled={busy} onClick={() => {
           setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setMessage("");
           setShowForm(false);
-        }}>Cancel budget</button>
+        }}>Cancel</button>
       </div>
     </form></Modal>}
   </section>;

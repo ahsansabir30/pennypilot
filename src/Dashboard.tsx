@@ -521,10 +521,8 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     )}
                     {formMessage && <p className="form-message error" role="alert">{formMessage}</p>}
                     <div className="modal-actions">
-                    <button className="add-transaction-button" disabled={busy} type="submit">
-                      {busy ? "Saving…" : "Save transaction"}
-                    </button>
-                    <button type="button" disabled={busy} onClick={() => setShowForm(false)}>Cancel transaction</button>
+                    <button className="add-transaction-button" aria-label="Save transaction" disabled={busy} type="submit">Save</button>
+                    <button type="button" aria-label="Cancel transaction" disabled={busy} onClick={() => setShowForm(false)}>Cancel</button>
                     </div>
                   </form>
                   </fieldset></Modal>

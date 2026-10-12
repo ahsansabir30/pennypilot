@@ -254,12 +254,6 @@
 .management-cards .management-row-actions { margin-top: auto; padding-top: 12px; }
 .management-cards progress { width: 100%; accent-color: #4f8b68; }
 .budget-exceeded { color: #943832; font-weight: 600; }
-.management-preference { display: grid; gap: 8px; max-width: 420px; margin-top: 14px; }
-.management-preference select { width: 100%; min-width: 0; }
-.budget-toolbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 24px; margin: 20px 0; }
-.budget-toolbar .management-preference { width: min(100%, 300px); margin: 0; }
-.budget-toolbar .management-preference select { min-height: 44px; padding: 0 12px; border: 1px solid #dbe3d9; border-radius: 8px; background: #fff; color: #304438; font: inherit; font-size: 13px; }
-.budget-toolbar .calculation-details { flex: 1; margin: 0; }
 .budget-list { margin: 24px 0; padding: 0; list-style: none; border-top: 1px solid var(--finance-border); }
 .budget-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; column-gap: 24px; padding: 18px 0 8px; border-bottom: 1px solid var(--finance-border); }
 .budget-row > div { min-width: 0; }
@@ -274,7 +268,6 @@
 .budget-row-actions button { margin: 0; font-size: 12px; }
 .budget-row-actions .budget-remove { border-color: transparent; background: transparent; color: #84392f; }
 .budget-row > .calculation-details { grid-column: 1 / -1; margin: 0; }
-.budget-row > .budget-comparison { grid-column: 1 / -1; color: var(--finance-muted); }
 .budget-limit-form { background: #f6f8f4; border-radius: 14px; padding: 22px; }
 .budget-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .budget-editor-heading h3 { margin: 0; }
@@ -294,8 +287,6 @@
   .budget-row-actions { justify-content: flex-end; }
 }
 @media (max-width: 620px) {
-  .budget-toolbar { flex-direction: column; gap: 12px; }
-  .budget-toolbar .management-preference { width: 100%; }
   .budget-row { grid-template-columns: minmax(0, 1fr); gap: 8px; padding-top: 20px; }
   .budget-row-actions { justify-content: flex-start; }
   .budget-row p { margin: 4px 0; }

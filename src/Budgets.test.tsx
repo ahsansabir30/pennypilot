@@ -16,29 +16,29 @@ describe("monthly budgets", () => {
   beforeEach(() => { mock.mockReset(); mock.mockImplementation(async (command) => command === "list_budgets" ? data : undefined); });
   afterEach(cleanup);
 
-  it("keeps concise accounting and period notes without expandable budget details", async () => {
+  it("omits budget explanatory prose, expandable details and comparison controls", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     await screen.findByRole("list", { name: "Category budgets" });
     expect(screen.queryByText("Period details")).toBeNull();
     expect(screen.queryByText("Calculation details")).toBeNull();
-    expect(screen.getByText(/Expenses less refunds; transfers and income excluded/)).toBeTruthy();
-    expect(screen.getByText(/Limits apply only to this month/)).toBeTruthy();
-    expect(screen.getByText("Recorded spending, not complete bank history.")).toBeTruthy();
+    expect(screen.queryByText(/Expenses less refunds|Limits apply only|No comparable|Previous recorded|through/)).toBeNull();
+    expect(screen.queryByText("Recorded spending, not complete bank history.")).toBeNull();
+    expect(screen.queryByLabelText("Comparison period")).toBeNull();
   });
 
-  it("retains exact large usage, allowance and prior-period differences", async () => {
+  it("retains exact large usage and allowance without displaying comparisons", async () => {
     mock.mockResolvedValue({ ...data, rows: [{ ...data.rows[0], usedPence: "9007199254740993", previousUsedPence: "9007199254740992", previousRecordCount: 1 }] });
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     expect(await screen.findByText("£90,071,992,547,409.93 used / £100.00 limit")).toBeTruthy();
     expect(screen.getByText("£90,071,992,547,309.93 over limit.")).toBeTruthy();
-    expect(screen.getByText(/Recorded change: £0.01/)).toBeTruthy();
+    expect(screen.queryByText(/Recorded change:/)).toBeNull();
   });
 
-  it("explains unavailable pre-1000 comparison without inferring change", async () => {
+  it("keeps the earliest supported budget usable without comparison prose", async () => {
     mock.mockResolvedValue({ ...data, month: "1000-01", periodEnd: "1000-01-31", previousMonth: null, previousEnd: null });
     render(<Budgets month="1000-01" categories={categories} refreshKey={0} />);
-    expect(await screen.findByText(/Previous period is outside the supported date range/)).toBeTruthy();
-    expect(screen.getByText(/no change inferred/)).toBeTruthy();
+    expect(await screen.findByText("£123.45 used / £100.00 limit")).toBeTruthy();
+    expect(screen.queryByText(/Previous period|no change inferred/)).toBeNull();
     expect(screen.queryByText(/Recorded change:/)).toBeNull();
   });
 
@@ -47,11 +47,10 @@ describe("monthly budgets", () => {
     expect(await screen.findByText("£123.45 used / £100.00 limit")).toBeTruthy();
     expect(screen.getByText("Exceeded budget · 123.5%")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Fictional Food budget progress" })).toHaveProperty("value", 100);
-    expect(screen.getByText(/No comparable category records/)).toBeTruthy();
-    expect(screen.getByText(/2024-02-01 through 2024-02-09/)).toBeTruthy();
+    expect(screen.queryByText(/No comparable category records|through/)).toBeNull();
   });
 
-  it("saves exact pence, edits limits and persists comparison preference", async () => {
+  it("saves exact pence and edits limits without mutating persisted comparison preferences", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     await screen.findByRole("list", { name: "Category budgets" });
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Fictional Food" }));
@@ -63,8 +62,8 @@ describe("monthly budgets", () => {
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget", { input: { month: "2024-02", categoryId: 1, limitPence: 25_001 } }));
     await screen.findByText("Budget saved for 2024-02.");
     expect(screen.queryByRole("dialog")).toBeNull();
-    fireEvent.change(await screen.findByLabelText("Comparison period"), { target: { value: "full_month" } });
-    await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget_preferences", { comparisonMode: "full_month" }));
+    expect(screen.queryByLabelText("Comparison period")).toBeNull();
+    expect(mock).not.toHaveBeenCalledWith("save_budget_preferences", expect.anything());
   });
 
   it("rejects fractional pence and surfaces failed saves", async () => {
