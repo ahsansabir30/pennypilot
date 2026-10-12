@@ -3,11 +3,14 @@ import type { FormEvent } from "react";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import "./App.css";
 import { validateNewPassphrase } from "./security";
+import { financeError } from "./finance";
 import Dashboard from "./Dashboard";
 import Brand from "./Brand";
 import ThemeToggle from "./ThemeToggle";
 
 type WorkspaceStatus = "new" | "locked" | "unlocked";
+
+const workspaceError = (error: unknown) => financeError(error, "PennyPilot could not complete that action. Please try again.");
 type FormMode = "create" | "unlock" | "recover";
 
 function App() {
@@ -31,7 +34,7 @@ function App() {
       setMessage("");
     } catch (error) {
       setStatus("error");
-      setMessage(errorMessage(error));
+      setMessage(workspaceError(error));
     }
   }
 
@@ -67,7 +70,7 @@ function App() {
       setPassphrase("");
       setConfirmation("");
     } catch (error) {
-      setMessage(errorMessage(error));
+      setMessage(workspaceError(error));
     } finally {
       setBusy(false);
     }
@@ -81,7 +84,7 @@ function App() {
       setStatus("locked");
       setMode("unlock");
     } catch (error) {
-      setMessage(errorMessage(error));
+      setMessage(workspaceError(error));
     } finally {
       setBusy(false);
     }
@@ -270,14 +273,5 @@ function App() {
   );
 }
 
-function errorMessage(error: unknown): string {
-  if (typeof error === "string") {
-    return error;
-  }
-  if (error instanceof Error) {
-    return error.message;
-  }
-  return "PennyPilot could not complete that action. Please try again.";
-}
 
 export default App;

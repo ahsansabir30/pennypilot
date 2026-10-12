@@ -122,8 +122,13 @@ export function localIsoDate(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-export function financeError(error: unknown): string {
+// Month labels come from the source "YYYY-MM" string; mid-month noon avoids timezone day shifts.
+export function formatMonth(month: string, options: Intl.DateTimeFormatOptions = { month: "long", year: "numeric" }): string {
+  return new Date(`${month}-15T12:00:00`).toLocaleDateString("en-GB", options);
+}
+
+export function financeError(error: unknown, fallback = "PennyPilot could not load or save this financial data."): string {
   if (typeof error === "string") return error;
   if (error instanceof Error) return error.message;
-  return "PennyPilot could not load or save this financial data.";
+  return fallback;
 }

@@ -38,6 +38,8 @@
 .finance-management > .add-transaction-button,
 .categorisation-grid > div > .add-transaction-button { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .modal-close:disabled { opacity: .5; cursor: wait; }
+.finance-modal .confirm-message { margin: 0 0 8px; color: var(--text); font-size: 15px; line-height: 1.6; overflow-wrap: anywhere; }
+.finance-modal .modal-actions .confirm-action { border-color: var(--danger-fill); background: var(--danger-fill); color: var(--on-accent); font-weight: 600; }
 .finance-modal [role="alert"] { color: var(--danger-text); margin-bottom: 16px; padding: 12px; border: 1px solid var(--danger-border); border-radius: 9px; background: var(--danger-surface); }
 .budget-transactions { list-style: none; padding: 0; margin: 16px 0; }
 .budget-transactions li { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid var(--border); }

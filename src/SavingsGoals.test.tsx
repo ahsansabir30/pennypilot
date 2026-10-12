@@ -95,8 +95,12 @@ describe("savings goals", () => {
   it("requires deliberate deletion confirmation", async () => {
     render(<SavingsGoals />);
     fireEvent.click(await screen.findByRole("button", { name: "Delete goal Fictional rainy day" }));
+    expect(screen.getByRole("dialog", { name: "Delete savings goal" }).textContent).toContain("Delete Fictional rainy day?");
+    expect(mock).not.toHaveBeenCalledWith("delete_savings_goal", expect.anything());
+    fireEvent.keyDown(document, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(mock).not.toHaveBeenCalledWith("delete_savings_goal", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Delete goal Fictional rainy day" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm goal deletion" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_savings_goal", { goalId: 1 }));
   });

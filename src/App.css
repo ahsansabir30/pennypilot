@@ -23,6 +23,7 @@
   --accent-soft-text: #557f63;
   --on-accent: #fff;
   --danger: #943832;
+  --danger-fill: #943832;
   --danger-text: #8c3a31;
   --danger-surface: #fbf0ec;
   --danger-hover: #f5dfda;
@@ -66,6 +67,7 @@
   --accent-soft-text: #7fbf98;
   --on-accent: #fff;
   --danger: #d77a6c;
+  --danger-fill: #a84a3d;
   --danger-text: #f2a99c;
   --danger-surface: #2e1d1a;
   --danger-hover: #452622;
@@ -143,6 +145,12 @@ button:disabled {
 :root body button.budget-remove:enabled:hover {
   background-color: var(--danger-hover);
   color: var(--danger-text);
+}
+
+:root body button.confirm-action:enabled:hover {
+  background-color: var(--danger-fill);
+  color: var(--on-accent);
+  filter: brightness(0.9);
 }
 
 button:focus-visible,
@@ -363,8 +371,7 @@ h1 span {
   letter-spacing: -0.8px;
 }
 
-.card-description,
-.unlocked-state > p {
+.card-description {
   margin-bottom: 25px;
   color: var(--text-subtle);
   font-size: 13px;
@@ -483,10 +490,6 @@ h1 span {
 
 .form-message.error {
   color: var(--danger-text);
-}
-
-.unlocked-state .primary-button {
-  margin-top: 0;
 }
 
 .loading-state {

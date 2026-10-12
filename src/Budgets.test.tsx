@@ -66,7 +66,7 @@ describe("monthly budgets", () => {
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "250.01" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("save_budget", { input: { month: "2024-02", categoryId: 1, limitPence: 25_001 } }));
-    await screen.findByText("Budget saved for 2024-02.");
+    await screen.findByText("Budget saved for February 2024.");
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(screen.queryByLabelText("Comparison period")).toBeNull();
     expect(mock).not.toHaveBeenCalledWith("save_budget_preferences", expect.anything());
@@ -103,10 +103,16 @@ describe("monthly budgets", () => {
     view.rerender(<Budgets month="2024-02" categories={categories} refreshKey={1} />);
     await waitFor(() => expect(mock).toHaveBeenCalledWith("list_budgets", expect.objectContaining({ month: "2024-02" })));
     fireEvent.click(await screen.findByRole("button", { name: "Remove budget for Fictional Food" }));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    const dialog = screen.getByRole("dialog", { name: "Remove budget" });
+    expect(dialog.textContent).toContain("Remove the Fictional Food limit for February 2024?");
+    expect(screen.getByRole("button", { name: "Cancel budget removal" })).toBe(document.activeElement);
     expect(mock).not.toHaveBeenCalledWith("delete_budget", expect.anything());
+    fireEvent.click(screen.getByRole("button", { name: "Cancel budget removal" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Remove budget for Fictional Food" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm budget removal" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_budget", { month: "2024-02", categoryId: 1 }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
   });
 
   it("hides old usage during a refresh and does not show it after a failed reload", async () => {
@@ -156,7 +162,7 @@ describe("monthly budgets", () => {
     expect(screen.getByRole("button", { name: "Cancel budget" })).toHaveProperty("disabled", true);
     if (!finishSave) throw new Error("Expected a pending budget save.");
     finishSave();
-    await screen.findByText("Budget saved for 2024-02.");
+    await screen.findByText("Budget saved for February 2024.");
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

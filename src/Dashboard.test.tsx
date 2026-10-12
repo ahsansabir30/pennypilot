@@ -409,7 +409,7 @@ describe("financial dashboard", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Groceries" }));
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "20.00" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));
-    await screen.findByText("Budget saved for 2026-10.");
+    await screen.findByText("Budget saved for October 2026.");
     navigate("overview");
     expect(await screen.findByText("£8.00 left")).toBeTruthy();
     navigate("savings");

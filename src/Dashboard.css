@@ -162,8 +162,7 @@
 .rules-apply button { flex-shrink: 0; }
 .rules-apply p { max-width: 60ch; }
 
-.categorisation-panel button,
-.use-rules-button {
+.categorisation-panel button {
   min-height: 44px;
   margin: 4px;
   padding: 6px 10px;
@@ -340,9 +339,6 @@
 .budget-amount-input:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
 .transaction-form .budget-amount-input input { min-width: 0; padding: 0; border: 0; background: transparent; box-shadow: none; font-size: 18px; font-variant-numeric: tabular-nums; }
 .budget-amount-input input:focus-visible { outline: none; }
-.budget-editor-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
-.budget-editor-actions button { margin: 0; }
-.budget-editor-actions button[type="submit"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 @media (max-width: 960px) {
   .workspace-navigation { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .workspace-navigation a { justify-content: center; text-align: center; padding: 10px 8px; }
@@ -432,7 +428,6 @@
 .transactions-heading,
 .panel-heading,
 .summary-card-top,
-.form-title,
 .pagination,
 .category-label {
   display: flex;
@@ -775,27 +770,6 @@
   background: var(--surface-muted);
 }
 
-.form-title {
-  margin-bottom: 13px;
-}
-
-.form-title h3 {
-  margin: 0;
-  color: var(--text);
-  font-size: 13px;
-}
-
-.close-form-button {
-  width: 44px;
-  height: 44px;
-  border: 0;
-  border-radius: 8px;
-  background: var(--tint);
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 18px;
-}
-
 .transaction-form-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -817,14 +791,16 @@
   font-weight: 400;
 }
 
+.transaction-form-grid .merchant-field { display: block; }
+.transaction-form-grid .merchant-field input { display: block; margin-top: 6px; }
+
 .transaction-form input,
 .transaction-form select {
   width: 100%;
   min-width: 0;
 }
 
-.policy-note,
-.accounting-policy {
+.policy-note {
   color: var(--finance-muted);
   font-size: 12px;
   line-height: 1.65;
@@ -832,10 +808,6 @@
 
 .policy-note {
   margin: 10px 0 0;
-}
-
-.form-submit {
-  margin: 14px 0 0 auto;
 }
 
 .transaction-filters {
@@ -1080,11 +1052,6 @@
 .pagination button:disabled {
   cursor: default;
   opacity: 0.45;
-}
-
-.accounting-policy {
-  margin: 2px 0 0;
-  color: var(--finance-muted);
 }
 
 .dashboard-error {

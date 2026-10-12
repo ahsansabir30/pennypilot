@@ -4,6 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   formatPence,
   absolutePence,
+  financeError as describeError,
+  formatMonth,
   localIsoDate,
   penceRatio,
   poundsToPence,
@@ -95,7 +97,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
         }
       })
       .catch((error: unknown) => {
-        if (active) setFinanceResult((previous) => ({ key: financeKey, data: previous?.data ?? null, error: errorMessage(error) }));
+        if (active) setFinanceResult((previous) => ({ key: financeKey, data: previous?.data ?? null, error: describeError(error) }));
       });
     return () => {
       active = false;
@@ -127,7 +129,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
         }
       })
       .catch((error: unknown) => {
-        if (active) setTransactionResult({ key: transactionKey, data: null, error: errorMessage(error) });
+        if (active) setTransactionResult({ key: transactionKey, data: null, error: describeError(error) });
       });
     return () => {
       active = false;
@@ -151,7 +153,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
 
   function restored() {
     setShowForm(false);
-    setSearch(""); setKindFilter(""); setCategoryFilter(""); setPage(0); setPendingDelete(null);
+    setSearch(""); setKindFilter(""); setCategoryFilter(""); setSort("date_desc"); setPage(0); setPendingDelete(null);
     setTransactionResult(null);
     setTransactionActionError("");
     refresh();
@@ -203,7 +205,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       setPage(0);
       refresh();
     } catch (error) {
-      setFormMessage(errorMessage(error));
+      setFormMessage(describeError(error));
     } finally {
       setBusy(false);
     }
@@ -220,7 +222,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       setCategoryEditor(null);
       refresh();
     } catch (error) {
-      setTransactionActionError(errorMessage(error));
+      setTransactionActionError(describeError(error));
     } finally { setBusy(false); }
   }
 
@@ -232,7 +234,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       setCategoryEditor(null);
       refresh();
     } catch (error) {
-      setTransactionActionError(errorMessage(error));
+      setTransactionActionError(describeError(error));
     } finally { setBusy(false); }
   }
 
@@ -244,7 +246,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
       setPendingDelete(null);
       refresh();
     } catch (error) {
-      setTransactionActionError(errorMessage(error));
+      setTransactionActionError(describeError(error));
     } finally { setBusy(false); }
   }
 
@@ -367,14 +369,14 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                             title={`Net spending ${formatPence(item.expensePence)}`}
                           />
                         </div>
-                        <span>{new Date(`${item.month}-15T12:00:00`).toLocaleDateString("en-GB", { month: "short" })}</span>
+                        <span>{formatMonth(item.month, { month: "short" })}</span>
                       </div>
                     ))}
                   </div>
                   <div className="trend-values">
                     {currentFinance.history.map((item) => (
                       <span key={item.month}>
-                        {new Date(`${item.month}-15T12:00:00`).toLocaleDateString("en-GB", { month: "short", year: "numeric" })}
+                        {formatMonth(item.month, { month: "short", year: "numeric" })}
                         <b>Net {formatPence(item.netCashFlowPence)}</b>
                       </span>
                     ))}
@@ -555,6 +557,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                     <span className="sr-only">Search transactions</span>
                     <span aria-hidden="true">⌕</span>
                     <input
+                      maxLength={100}
                       placeholder="Search merchant or description"
                       value={search}
                       onChange={(event) => {
@@ -793,11 +796,6 @@ function TransactionRow({
   );
 }
 
-function errorMessage(error: unknown): string {
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  return "PennyPilot could not load or save this financial data.";
-}
 
 function isTransactionKind(value: string): value is TransactionKind {
   return ["income", "expense", "refund", "transfer"].includes(value);

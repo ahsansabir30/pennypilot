@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { financeError, formatPence, poundsToPence } from "./finance";
 import type { SavingsGoal } from "./finance";
 import Modal from "./Modal";
+import ConfirmDialog from "./ConfirmDialog";
 
 const empty = { id: null as number | null, name: "", target: "", progress: "0.00", targetDate: "", notes: "" };
 
@@ -56,7 +57,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Your goals</h2>
     <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setForm(empty); setError(""); setShowForm(true); }}>Add savings goal</button>
     </div>
-    {error && !showForm && <div role="alert">{error} <button type="button" onClick={() => {
+    {error && !showForm && deleting === null && <div role="alert">{error} <button type="button" onClick={() => {
       setGoals([]); setLoading(true); setError(""); setRevision((value) => value + 1);
     }}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
@@ -85,11 +86,11 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
         </li>;
       })}
     </ul>
-    {deleting !== null && <div role="group" aria-label="Confirm goal deletion">
-      Delete this goal? No transactions or actual funds will be changed.
-      <button type="button" disabled={busy} onClick={() => void mutate("delete_savings_goal", { goalId: deleting }, "Savings goal deleted.")}>Confirm goal deletion</button>
-      <button type="button" disabled={busy} onClick={() => setDeleting(null)}>Cancel goal deletion</button>
-    </div>}
+    {deleting !== null && <ConfirmDialog title="Delete savings goal" confirmLabel="Delete" busy={busy} error={error}
+      message={`Delete ${goals.find((goal) => goal.id === deleting)?.name ?? "this goal"}? No transactions or actual funds will be changed.`}
+      confirmName="Confirm goal deletion" cancelName="Cancel goal deletion"
+      onConfirm={() => void mutate("delete_savings_goal", { goalId: deleting }, "Savings goal deleted.")}
+      onCancel={() => { setDeleting(null); setError(""); }} />}
     {showForm && <Modal title={form.id === null ? "Add savings goal" : "Edit savings goal"} busy={busy}
       onClose={() => { setShowForm(false); setError(""); }}>
     {error && <p role="alert">{error}</p>}

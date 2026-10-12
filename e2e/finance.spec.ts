@@ -133,6 +133,23 @@ test("system appearance changes apply until the user selects a theme", async ({ 
   await expect(toggle).toBeChecked();
 });
 
+test("transaction search stays within the backend limit instead of surfacing a validation failure", async ({ page }) => {
+  await home(page);
+  const search = page.getByRole("textbox", { name: "Search transactions" });
+  await expect(search).toHaveAttribute("maxlength", "100");
+  await search.fill("x".repeat(100));
+  await expect(search).toHaveValue("x".repeat(100));
+  await expect(page.getByText("No transactions match these filters.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await search.press("y");
+  await expect(search).toHaveValue("x".repeat(100));
+  await expect.poll(() => page.evaluate(() =>
+    window.__pennyTest.calls.filter((call) => call.command === "list_transactions")
+      .every((call) => String((call.args.filter as { search: string }).search).length <= 100))).toBe(true);
+  await page.getByRole("button", { name: "Clear filters", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+});
+
 test("dark modal selects retain visible chevrons and native forced-colors controls", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "dark" });
   await home(page);
@@ -995,7 +1012,7 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await expect(panel.getByRole("alert")).toContainText("two decimal places");
   await panel.getByLabel("Monthly limit (GBP)").fill("500.01");
   await panel.getByRole("button", { name: "Save monthly budget", exact: true }).click();
-  await expect(panel.getByRole("status")).toHaveText("Budget saved for 2024-02.");
+  await expect(panel.getByRole("status")).toHaveText("Budget saved for February 2024.");
   await expect(panel.getByRole("dialog")).toHaveCount(0);
   await navigate(page, "Overview");
   await expect(page.getByRole("article", { name: "Budgets", exact: true })).toContainText("£500.01");
@@ -1019,12 +1036,19 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   const removeBudget = panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true });
   await expect(removeBudget).toHaveText("×");
   await removeBudget.click();
+  const removeDialog = panel.getByRole("dialog", { name: "Remove budget", exact: true });
+  await expect(removeDialog).toContainText("Remove the Fictional Food limit for February 2024? Transactions are retained.");
+  await expect(removeDialog.getByLabel("Monthly limit (GBP)")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Cancel budget removal", exact: true })).toBeFocused();
+  await page.keyboard.press("Escape");
   await expect(panel.getByRole("dialog")).toHaveCount(0);
-  await panel.getByRole("button", { name: "Cancel budget removal", exact: true }).click();
-  await expect(panel.getByRole("group", { name: "Confirm budget removal" })).toHaveCount(0);
-  await panel.getByRole("button", { name: "Remove budget for Fictional Food", exact: true }).click();
+  await expect(removeBudget).toBeFocused();
+  await removeBudget.click();
   await panel.getByRole("button", { name: "Confirm budget removal", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit budget for Fictional Food", exact: true })).toHaveCount(0);
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByRole("list", { name: "Category budgets" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Budgets", level: 1 })).toBeFocused();
 });
 
 test("multiple budgets remain separate list rows with an accessible responsive limit editor", async ({ page }, testInfo) => {
@@ -1098,10 +1122,13 @@ test("savings add, invalid values, explicit progress, edit/cancel, notes and del
   await panel.getByText("Notes", { exact: true }).click();
   await expect(panel.getByText("Fictional note only", { exact: true })).toBeVisible();
   await panel.getByRole("button", { name: "Delete goal Fictional holiday", exact: true }).click();
+  await expect(panel.getByRole("dialog", { name: "Delete savings goal", exact: true })).toContainText("Delete Fictional holiday?");
   await panel.getByRole("button", { name: "Cancel goal deletion", exact: true }).click();
-  await expect(panel.getByRole("group", { name: "Confirm goal deletion" })).toHaveCount(0);
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Delete goal Fictional holiday", exact: true })).toBeFocused();
   await panel.getByRole("button", { name: "Delete goal Fictional holiday", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm goal deletion", exact: true }).click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await navigate(page, "Overview");
   await expect(page.getByRole("article", { name: "Savings", exact: true })).toContainText("No savings goals yet.");
 });
@@ -1156,8 +1183,10 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await panel.getByRole("button", { name: "Apply rules to automatic transactions", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText("Manual choices preserved.");
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
-  await expect(panel.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByRole("dialog", { name: "Delete rule", exact: true })).toContainText("Delete the rule for fictional merchant?");
+  await expect(panel.getByRole("dialog").getByLabel("Merchant pattern")).toHaveCount(0);
   await panel.getByRole("button", { name: "Cancel deletion", exact: true }).click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm deletion", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true })).toHaveCount(0);
@@ -1269,9 +1298,12 @@ test("failed requests have real retries and mutations do not falsely report succ
   await page.evaluate(() => window.__pennyTest.failNext("delete_category", "Category is in use."));
   await panel.getByRole("button", { name: "Delete Fictional Food", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm deletion", exact: true }).click();
-  await expect(panel.getByRole("alert")).toHaveText("Category is in use.");
-  await expect(panel.getByRole("button", { name: "Edit Fictional Food", exact: true })).toBeVisible();
+  const deleteDialog = panel.getByRole("dialog", { name: "Delete category", exact: true });
+  await expect(deleteDialog.getByRole("alert")).toHaveText("Category is in use.");
   await panel.getByRole("button", { name: "Cancel deletion", exact: true }).click();
+  await expect(panel.getByRole("dialog")).toHaveCount(0);
+  await expect(panel.getByRole("alert")).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "Edit Fictional Food", exact: true })).toBeVisible();
 });
 
 test("dashboard and planning retries recover without showing missing history as success", async ({ page }) => {

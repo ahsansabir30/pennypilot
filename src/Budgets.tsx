@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import type { FormEvent, Ref } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { financeError, formatPence, localIsoDate, penceRatio, poundsToPence } from "./finance";
+import { financeError, formatMonth, formatPence, localIsoDate, penceRatio, poundsToPence } from "./finance";
 import type { BudgetData, Category } from "./finance";
 import Modal from "./Modal";
+import ConfirmDialog from "./ConfirmDialog";
 import BudgetTransactions from "./BudgetTransactions";
 
 export default function Budgets({ month, categories, refreshKey, onChanged, headingRef }: {
@@ -24,6 +25,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
   const current = result?.key === requestKey && result.data?.month === month ? result.data : null;
   const transactionRow = transactionCategory?.key === requestKey
     ? current?.rows.find((row) => row.categoryId === transactionCategory.id) : undefined;
+  const deletingRow = deleting === null ? undefined : current?.rows.find((row) => row.categoryId === deleting);
   const loadError = result?.key === requestKey ? result.error : "";
   const displayedError = error || loadError;
 
@@ -57,7 +59,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       return;
     }
     if (await mutate("save_budget", { input: { month, categoryId: Number(form.categoryId), limitPence } },
-      `Budget saved for ${month}.`)) {
+      `Budget saved for ${formatMonth(month)}.`)) {
       setForm({ categoryId: "", limit: "" });
       setEditing(false);
       setShowForm(false);
@@ -71,12 +73,11 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
       setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setShowForm(true);
     }}>Add budget</button>
     </div>
-    {displayedError && !showForm && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
+    {displayedError && !showForm && deleting === null && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}
     {current && <>
-      {current.rows.length === 0 && <p>No budgets this month.</p>}
-      <ul className="budget-list" aria-label="Category budgets">
+      {current.rows.length === 0 ? <p>No budgets this month.</p> : <ul className="budget-list" aria-label="Category budgets">
         {current.rows.map((row) => {
           const used = BigInt(row.usedPence);
           const limit = BigInt(row.limitPence);
@@ -115,13 +116,13 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
             </div>
           </li>;
         })}
-      </ul>
+      </ul>}
     </>}
-    {deleting !== null && <div role="group" aria-label="Confirm budget removal">
-      Remove the limit for {month}? Transactions are retained.
-      <button type="button" disabled={busy} onClick={() => void mutate("delete_budget", { month, categoryId: deleting }, "Budget removed.")}>Confirm budget removal</button>
-      <button type="button" disabled={busy} onClick={() => setDeleting(null)}>Cancel budget removal</button>
-    </div>}
+    {deleting !== null && <ConfirmDialog title="Remove budget" confirmLabel="Remove" busy={busy} error={error}
+      message={`Remove the ${deletingRow?.categoryName ?? "category"} limit for ${formatMonth(month)}? Transactions are retained.`}
+      confirmName="Confirm budget removal" cancelName="Cancel budget removal"
+      onConfirm={() => void mutate("delete_budget", { month, categoryId: deleting }, "Budget removed.")}
+      onCancel={() => { setDeleting(null); setError(""); }} />}
     {current && transactionRow &&
       <BudgetTransactions key={`${requestKey}:${transactionRow.categoryId}`} month={month} categoryId={transactionRow.categoryId}
         categoryName={transactionRow.categoryName}

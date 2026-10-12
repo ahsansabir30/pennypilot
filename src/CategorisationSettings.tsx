@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { financeError } from "./finance";
 import type { Category, CategoryRule } from "./finance";
 import Modal from "./Modal";
+import ConfirmDialog from "./ConfirmDialog";
 
 type Props = { categories: Category[]; onChanged: () => void };
+const settingsError = (error: unknown) => financeError(error, "PennyPilot could not save these categorisation settings.");
 const newCategory = { id: null as number | null, name: "", categoryType: "expense", color: "#66896D" };
 const newRule = { id: null as number | null, pattern: "", matchType: "contains", categoryId: "", priority: "20", enabled: true };
 const categoryColours = [
@@ -22,7 +25,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [revision, setRevision] = useState(0);
-  const [pendingDelete, setPendingDelete] = useState<{ type: "category" | "rule"; id: number } | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<{ type: "category" | "rule"; id: number; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [rulesError, setRulesError] = useState("");
   const [editor, setEditor] = useState<"category" | "rule" | null>(null);
@@ -45,7 +48,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
     let active = true;
     invoke<CategoryRule[]>("list_category_rules")
       .then((data) => { if (active) { setRules(data); setRulesError(""); } })
-      .catch((error: unknown) => { if (active) setRulesError(errorText(error)); })
+      .catch((error: unknown) => { if (active) setRulesError(settingsError(error)); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [revision]);
@@ -59,7 +62,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
       onChanged();
       return true;
     } catch (error) {
-      setError(errorText(error));
+      setError(settingsError(error));
       return false;
     } finally {
       setBusy(false);
@@ -113,7 +116,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
             document.getElementById(`settings-tab-${next}`)?.focus();
           }}>{id === "categories" ? "Categories" : "Rules"}</button>)}
       </div>
-      {error && !editor && <p role="alert" className="form-message error">{error}</p>}
+      {error && !editor && !pendingDelete && <p role="alert" className="form-message error">{error}</p>}
       {rulesError && <div role="alert" className="form-message error">{rulesError}
         <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
@@ -137,7 +140,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
                 disabled={busy} onClick={() => { setCategory(item); setPendingDelete(null); setError(""); setEditor("category"); }} />
               <span><i className="budget-category-dot" aria-hidden="true" style={{ background: item.color }} />{item.name}<small className="category-type">{item.categoryType}</small></span>
               <div className="management-row-actions">
-                <button type="button" className="destructive-action record-delete" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}><span aria-hidden="true">×</span></button>
+                <button type="button" className="destructive-action record-delete" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id, name: item.name })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}
           </ul>
@@ -204,7 +207,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
               </span>
               <div className="management-row-actions">
-                <button disabled={busy} type="button" className="destructive-action record-delete" aria-label={`Delete rule ${item.pattern}`} title={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}><span aria-hidden="true">×</span></button>
+                <button disabled={busy} type="button" className="destructive-action record-delete" aria-label={`Delete rule ${item.pattern}`} title={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id, name: item.pattern })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}
             {visibleRules.length === 0 && <li className="settings-empty">{rules.length === 0 ? "No rules yet." : "No matching rules."}</li>}
@@ -238,11 +241,12 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           </form></Modal>}
         </div>
       </div>
-      {pendingDelete && <div className="policy-note" role="group" aria-label="Confirm settings deletion">
-        Delete this {pendingDelete.type}? Categories in use cannot be deleted.
-        <button disabled={busy} type="button" onClick={() => void remove()}>Confirm deletion</button>
-        <button disabled={busy} type="button" onClick={() => setPendingDelete(null)}>Cancel deletion</button>
-      </div>}
+      {pendingDelete && <ConfirmDialog title={pendingDelete.type === "rule" ? "Delete rule" : "Delete category"} confirmLabel="Delete"
+        busy={busy} error={error} confirmName="Confirm deletion" cancelName="Cancel deletion"
+        message={pendingDelete.type === "rule"
+          ? `Delete the rule for ${pendingDelete.name}? Existing manual category choices are preserved.`
+          : `Delete ${pendingDelete.name}? Categories used by transactions, rules or budgets cannot be deleted.`}
+        onConfirm={() => void remove()} onCancel={() => { setPendingDelete(null); setError(""); }} />}
       <div className="rules-apply" hidden={tab !== "rules"}>
       <p className="policy-note">Apply rule changes to existing automatic transactions. Manual choices stay unchanged.</p>
       <button aria-label="Apply rules to automatic transactions" disabled={busy || loading || Boolean(rulesError)} type="button" onClick={() => void perform(async () => {
@@ -251,10 +255,4 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
       </div>
     </section>
   );
-}
-
-function errorText(error: unknown): string {
-  if (typeof error === "string") return error;
-  if (error instanceof Error) return error.message;
-  return "PennyPilot could not save these categorisation settings.";
 }
