@@ -320,7 +320,6 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                 <SummaryCard
                   label="Spending"
                   amount={monthly.expensePence}
-                  description="Expenses less refunds"
                   tone="spending"
                 />
                 <SummaryCard

@@ -45,6 +45,8 @@ Dashboard totals and transaction results are tied to their requested period, fil
 
 ## Financial data and accounting
 
+The Overview spending card omits the “Expenses less refunds” subtitle; its amount still nets refunds according to the accounting rules below.
+
 - Accounts and categories are stored in the encrypted workspace. Accounts use GBP.
 - Transaction amounts are positive integer pence (for example, `1234` is £12.34); direction is represented by the transaction kind, not a negative amount.
 - Individual amounts and limits are capped at 99,999,999,999 pence, safely representable as JavaScript numbers. Aggregate totals remain signed 64-bit integer pence in Rust/SQLite and cross IPC as decimal strings. The UI uses BigInt for currency arithmetic, comparisons and formatting, including totals beyond JavaScript's safe-integer range. Only chart/progress proportions use floating point. Totals outside the signed 64-bit range fail explicitly rather than rounding or wrapping.
