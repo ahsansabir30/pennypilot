@@ -35,6 +35,29 @@ button:disabled {
   cursor: not-allowed;
 }
 
+:root body button:enabled:hover,
+:root body a.text-button:hover,
+:root body a.lock-button:hover {
+  background-color: #dce8dd;
+  color: #203b2b;
+}
+
+:root body button.primary-button:enabled:hover,
+:root body button.add-transaction-button:enabled:hover,
+:root body .management-heading button:enabled:hover,
+:root body .modal-actions button[type="submit"]:enabled:hover {
+  background-color: #1d4632;
+  color: #fff;
+}
+
+:root body button.destructive-action:enabled:hover,
+:root body button.delete-button:enabled:hover,
+:root body button.confirm-delete:enabled:hover,
+:root body button.budget-remove:enabled:hover {
+  background-color: #f5dfda;
+  color: #84392f;
+}
+
 button:focus-visible,
 input:focus-visible,
 select:focus-visible,

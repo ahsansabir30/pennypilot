@@ -56,6 +56,8 @@ Dashboard totals and transaction results are tied to their requested period, fil
 
 ## Monthly budgets and insights
 
+Enabled buttons and button-styled links change colour on hover. Primary actions retain a darker green hover treatment and destructive actions use a pale red treatment; disabled controls do not receive the enabled hover styling.
+
 Record creation and edit popups use **Save** and **Cancel** as their visible action labels. Record-specific accessible names remain available to assistive technology. The Savings page omits the repeated manual-progress/no-money-moved subtitle; entered progress remains separate from transactions and actual funds.
 
 Popup dropdowns and single-line text fields use the same 48px height, including the GBP amount wrapper. Dropdowns have a consistent styled chevron rather than platform-dependent compact native styling, while retaining native selection and keyboard behaviour. Forced-colour mode restores the native selector.

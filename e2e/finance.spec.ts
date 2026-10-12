@@ -23,6 +23,35 @@ async function addExpense(page: Page, merchant = "Fictional Coffee Shop", amount
   await expect(page.getByText(merchant, { exact: true })).toBeVisible();
 }
 
+test("enabled page and popup buttons change colour on hover without changing disabled controls", async ({ page }) => {
+  await home(page);
+  async function expectHoverChange(button: ReturnType<Page["getByRole"]>) {
+    await page.mouse.move(0, 0);
+    const before = await button.evaluate((element) => getComputedStyle(element).backgroundColor);
+    await button.hover();
+    expect(await button.evaluate((element) => getComputedStyle(element).backgroundColor)).not.toBe(before);
+  }
+  await expectHoverChange(page.getByRole("button", { name: "Add transaction", exact: true }));
+  await expectHoverChange(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true }));
+  await page.getByRole("button", { name: "Add transaction", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Add transaction", exact: true });
+  await expectHoverChange(dialog.getByRole("button", { name: "Save transaction", exact: true }));
+  await expectHoverChange(dialog.getByRole("button", { name: "Cancel transaction", exact: true }));
+  await expectHoverChange(dialog.getByRole("button", { name: "Close Add transaction", exact: true }));
+  await page.evaluate(() => window.__pennyTest.hold("create_transaction"));
+  await dialog.getByLabel("Description", { exact: true }).fill("Fictional hover test");
+  await dialog.getByLabel("Amount (GBP)", { exact: true }).fill("1.00");
+  await dialog.getByRole("button", { name: "Save transaction", exact: true }).click();
+  const disabledCancel = dialog.getByRole("button", { name: "Cancel transaction", exact: true });
+  await expect(disabledCancel).toBeDisabled();
+  await page.mouse.move(0, 0);
+  const before = await disabledCancel.evaluate((element) => getComputedStyle(element).backgroundColor);
+  await disabledCancel.hover();
+  expect(await disabledCancel.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe(before);
+  await page.evaluate(() => window.__pennyTest.release("create_transaction"));
+  await expect(dialog).toHaveCount(0);
+});
+
 const popupEditors = [
   { page: "Transactions", add: "Add transaction", field: "Description", value: "Fictional popup expense", amount: "Amount (GBP)", save: "Save transaction", command: "create_transaction" },
   { page: "Budgets", add: "Add budget", field: "Monthly limit (GBP)", value: "200.01", select: "Budget category", save: "Save monthly budget", command: "save_budget" },
