@@ -47,6 +47,14 @@ for (const editor of popupEditors) {
     const dialog = page.getByRole("dialog", { name: editor.add, exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog).toHaveAttribute("aria-modal", "true");
+    for (const select of await dialog.getByRole("combobox").all()) {
+      expect((await select.boundingBox())?.height).toBe(48);
+      expect(await select.evaluate((element) => getComputedStyle(element).appearance)).toBe("none");
+    }
+    for (const input of await dialog.locator('input:not([type="checkbox"]):not([type="color"]), .budget-amount-input').all()) {
+      if (await input.evaluate((element) => element.matches(".budget-amount-input input"))) continue;
+      expect((await input.boundingBox())?.height).toBe(48);
+    }
     const bounds = await dialog.boundingBox();
     expect(bounds).not.toBeNull();
     expect(bounds!.x).toBeGreaterThanOrEqual(0);
@@ -107,6 +115,38 @@ async function saveFoodBudget(page: Page) {
   await expect(page.getByRole("button", { name: "View transactions for Fictional Food", exact: true })).toBeVisible();
 }
 
+test("categories and rules stack vertically with independent search and combined filters", async ({ page }) => {
+  await home(page);
+  await navigate(page, "Categories & Rules");
+  const categories = page.getByRole("list", { name: "Categories", exact: true });
+  const categoryBounds = await categories.boundingBox();
+  const rulesHeading = await page.getByRole("heading", { name: "Merchant rules", exact: true }).boundingBox();
+  expect(categoryBounds).not.toBeNull();
+  expect(rulesHeading!.y).toBeGreaterThan(categoryBounds!.y + categoryBounds!.height);
+  await page.getByLabel("Search categories", { exact: true }).fill(" FOOD ");
+  await expect(categories.getByRole("listitem")).toHaveCount(1);
+  await page.getByRole("combobox", { name: "Category filter", exact: true }).selectOption("income");
+  await expect(page.getByText("No matching categories.", { exact: true })).toBeVisible();
+  await page.getByLabel("Search categories", { exact: true }).fill("");
+  await expect(categories).toContainText("Fictional Salary");
+  await page.getByRole("button", { name: "Add rule", exact: true }).click();
+  await page.getByLabel("Merchant pattern", { exact: true }).fill("Fictional Market");
+  await page.getByRole("combobox", { name: "Rule category", exact: true }).selectOption("1");
+  await page.getByRole("button", { name: "Save rule", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByLabel("Search rules", { exact: true }).fill(" FOOD ");
+  const rules = page.getByRole("list", { name: "Merchant rules", exact: true });
+  await expect(rules).toContainText("fictional market");
+  await page.getByRole("combobox", { name: "Rule status", exact: true }).selectOption("disabled");
+  await expect(rules).toContainText("No matching rules.");
+  await page.getByRole("combobox", { name: "Rule status", exact: true }).selectOption("enabled");
+  await page.getByRole("combobox", { name: "Rule category filter", exact: true }).selectOption("2");
+  await expect(rules).toContainText("No matching rules.");
+  await page.getByRole("combobox", { name: "Rule category filter", exact: true }).selectOption("1");
+  await expect(page.getByRole("button", { name: "Edit rule fictional market", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "reclassify_transactions").length)).toBe(0);
+});
+
 test("budget drilldown paginates exact elapsed category spending with signed refunds and manual corrections", async ({ page }, testInfo) => {
   await home(page);
   await navigate(page, "Categories & Rules");
@@ -142,7 +182,7 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions", exact: true });
   const rows = dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem");
   await expect(rows).toHaveCount(10);
-  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 12 records");
+  await expect(dialog.getByRole("status")).toHaveText("1–10 of 12 transactions");
   expect(await rows.locator("div > strong").allTextContents()).toEqual(
     [14, 13, 12, 11, 10, 9, 8, 7, 6, 5].map((id) => `Fictional Merchant ${id}`));
   for (const excluded of ["Fictional Merchant 16", "Fictional Merchant 15", "Fictional Merchant 2", "Fictional Merchant 4",
@@ -151,13 +191,21 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   }
   // First page: 14 down through 5; second page: refund 3 and expense 1.
   await expect(rows.filter({ hasText: "Fictional Merchant 14" })).toContainText("£14.00");
-  await expect(dialog.getByText(/2024-02-01 through 2024-02-15/)).toBeVisible();
+  await expect(dialog.getByText(/through|Current category choices|Recorded activity only/)).toHaveCount(0);
+  for (const label of ["Previous transactions", "Next transactions"]) {
+    const arrow = dialog.getByRole("button", { name: label, exact: true });
+    await expect(arrow).toHaveText("");
+    const bounds = await arrow.boundingBox();
+    expect(bounds?.width).toBe(44);
+    expect(bounds?.height).toBe(44);
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("budget-transactions.png"), fullPage: true });
   await dialog.getByRole("button", { name: "Next transactions" }).click();
   await expect(rows).toHaveCount(2);
   expect(await rows.locator("div > strong").allTextContents()).toEqual(["Fictional Merchant 3", "Fictional Merchant 1"]);
-  await expect(rows.filter({ hasText: "Fictional Merchant 3" })).toContainText("Refund · Manual category");
+  await expect(rows.filter({ hasText: "Fictional Merchant 3" })).toContainText("Refund");
+  await expect(dialog.getByText(/Manual category/)).toHaveCount(0);
   await expect(rows.filter({ hasText: "Fictional Merchant 3" })).toContainText("-£3.00");
   await expect(dialog.getByText("Fictional Merchant 1", { exact: true })).toBeVisible();
   for (const excluded of ["Fictional Merchant 2", "Fictional Merchant 4", "Fictional prior month", "Fictional next month", "Fictional other category"]) {
@@ -194,10 +242,10 @@ test("budget drilldown supports loading dismissal, failure retry and clean reope
   await dialog.getByRole("button", { name: "Retry budget transactions" }).click();
   await expect(dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem")).toHaveCount(10);
   await dialog.getByRole("button", { name: "Next transactions" }).click();
-  await expect(dialog.getByRole("status")).toHaveText("Page 2 of 2 · 13 records");
+  await expect(dialog.getByRole("status")).toHaveText("11–13 of 13 transactions");
   await dialog.getByRole("button", { name: "Close Fictional Food budget transactions", exact: true }).click();
   await trigger.click();
-  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 13 records");
+  await expect(dialog.getByRole("status")).toHaveText("1–10 of 13 transactions");
   await page.keyboard.press("Escape");
 });
 
@@ -210,8 +258,7 @@ test("future budget drilldown is explicitly empty without requesting whole-month
   const count = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").length);
   await page.getByRole("button", { name: "View transactions for Fictional Food", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions" });
-  await expect(dialog.getByText(/2024-03: no elapsed period/)).toBeVisible();
-  await expect(dialog.getByText("No recorded expense or refund transactions in this budget period.", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("No spending yet this month.", { exact: true })).toBeVisible();
   await expect(dialog.getByRole("list")).toHaveCount(0);
   expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").length)).toBe(count);
   await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
@@ -233,11 +280,11 @@ test("past budget drilldown includes persisted leap-day refunds through calendar
   await expect(page.getByText("£122.99 used / £100.00 limit", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "View transactions for Fictional Food", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions" });
-  await expect(dialog.getByText(/2024-02-01 through 2024-02-29/)).toBeVisible();
+  await expect(dialog.getByText(/2024-02-01 through 2024-02-29/)).toHaveCount(0);
   const refund = dialog.getByRole("listitem").filter({ hasText: "Fictional leap-day refund" });
   await expect(refund).toContainText("-£1.01");
   await expect(refund).toContainText("2024-02-29 · Refund");
-  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 15 records");
+  await expect(dialog.getByRole("status")).toHaveText("1–10 of 15 transactions");
   await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
 });
 
@@ -291,6 +338,18 @@ test("planning and settings layouts keep concise actions and expandable safeguar
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
   }
   await checkLayout("budgets");
+  await navigate(page, "Overview");
+  const budgetPreview = page.getByRole("article", { name: "Budgets", exact: true });
+  await expect(budgetPreview).toContainText("£108.00 of £100.00");
+  await expect(budgetPreview.getByText("1 category", { exact: true })).toBeVisible();
+  await expect(budgetPreview.getByText("1 over limit", { exact: true })).toBeVisible();
+  await expect(budgetPreview.getByText(/Recorded through|history may be incomplete|Expenses less refunds/)).toHaveCount(0);
+  const previewRow = budgetPreview.getByRole("listitem");
+  const progressBounds = await previewRow.getByRole("progressbar").boundingBox();
+  const rowBounds = await previewRow.boundingBox();
+  expect(progressBounds!.x).toBeGreaterThan(rowBounds!.x);
+  expect(progressBounds!.x + progressBounds!.width).toBeLessThan(rowBounds!.x + rowBounds!.width);
+  await checkLayout("overview");
   await navigate(page, "Savings");
   await expect(page.getByRole("heading", { name: "Your goals", exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Add savings goal", exact: true }).click();
@@ -312,12 +371,7 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   const rulesHeading = await page.getByRole("heading", { name: "Merchant rules", exact: true }).boundingBox();
   expect(categoriesHeading).not.toBeNull();
   expect(rulesHeading).not.toBeNull();
-  if (testInfo.project.name === "desktop") {
-    expect(Math.abs(categoriesHeading!.y - rulesHeading!.y)).toBeLessThanOrEqual(1);
-    expect(rulesHeading!.x).toBeGreaterThan(categoriesHeading!.x);
-  } else {
-    expect(rulesHeading!.y).toBeGreaterThan(categoriesHeading!.y + categoriesHeading!.height);
-  }
+  expect(rulesHeading!.y).toBeGreaterThan(categoriesHeading!.y + categoriesHeading!.height);
   await page.getByRole("button", { name: "Add rule", exact: true }).click();
   await page.getByLabel("Merchant pattern").fill("Fictional Merchant");
   await page.getByRole("combobox", { name: "Rule category", exact: true }).selectOption("1");
@@ -710,7 +764,7 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await panel.getByRole("button", { name: "Add rule", exact: true }).click();
   await panel.getByLabel("Merchant pattern").fill("Fictional Merchant");
   await panel.getByLabel("Match method").selectOption("contains");
-  await panel.getByLabel("Rule category").selectOption({ label: "Fictional Trips (expense)" });
+  await panel.getByRole("combobox", { name: "Rule category", exact: true }).selectOption({ label: "Fictional Trips (expense)" });
   await panel.getByLabel("Priority").fill("50");
   await panel.getByRole("button", { name: "Save rule", exact: true }).click();
   await expect(panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true })).toBeVisible();

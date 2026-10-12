@@ -20,6 +20,19 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   const [loading, setLoading] = useState(true);
   const [rulesError, setRulesError] = useState("");
   const [editor, setEditor] = useState<"category" | "rule" | null>(null);
+  const [categorySearch, setCategorySearch] = useState("");
+  const [categoryType, setCategoryType] = useState("");
+  const [ruleSearch, setRuleSearch] = useState("");
+  const [ruleStatus, setRuleStatus] = useState("");
+  const [ruleCategory, setRuleCategory] = useState("");
+  const visibleCategories = categories.filter((item) =>
+    item.name.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())
+    && (!categoryType || item.categoryType === categoryType));
+  const visibleRules = rules.filter((item) =>
+    `${item.pattern} ${categories.find((category) => category.id === item.categoryId)?.name ?? ""}`.toLocaleLowerCase()
+      .includes(ruleSearch.trim().toLocaleLowerCase())
+    && (!ruleStatus || item.enabled === (ruleStatus === "enabled"))
+    && (!ruleCategory || item.categoryId === Number(ruleCategory)));
 
   useEffect(() => {
     let active = true;
@@ -91,8 +104,16 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           <h3>Categories</h3>
           <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setCategory(newCategory); setError(""); setEditor("category"); }}>Add category</button>
           </div>
+          <div className="settings-filters">
+            <label>Search categories<input type="search" value={categorySearch} placeholder="Category name"
+              onChange={(event) => setCategorySearch(event.currentTarget.value)} /></label>
+            <label>Category filter<select value={categoryType} onChange={(event) => setCategoryType(event.currentTarget.value)}>
+              <option value="">All types</option><option value="expense">Expense</option><option value="income">Income</option>
+            </select></label>
+          </div>
+          {visibleCategories.length === 0 && <p className="settings-empty">{categories.length === 0 ? "No categories yet." : "No matching categories."}</p>}
           <ul className="settings-list" aria-label="Categories">
-            {categories.map((item) => <li key={item.id}>
+            {visibleCategories.map((item) => <li key={item.id}>
               <span><i className="budget-category-dot" aria-hidden="true" style={{ background: item.color }} />{item.name}<small className="category-type">{item.categoryType}</small></span>
               <div className="management-row-actions">
                 <button type="button" aria-label={`Edit ${item.name}`} disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit</button>
@@ -126,13 +147,23 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           <h3>Merchant rules</h3>
           <button className="add-transaction-button" type="button" disabled={busy || categories.length === 0} onClick={() => { setRule(newRule); setError(""); setEditor("rule"); }}>Add rule</button>
           </div>
-          <p className="policy-note">Match merchants automatically.</p>
+          <div className="settings-filters rules-filters">
+            <label>Search rules<input type="search" value={ruleSearch} placeholder="Merchant or category"
+              onChange={(event) => setRuleSearch(event.currentTarget.value)} /></label>
+            <label>Rule category filter<select value={ruleCategory} onChange={(event) => setRuleCategory(event.currentTarget.value)}>
+              <option value="">All categories</option>
+              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select></label>
+            <label>Rule status<select value={ruleStatus} onChange={(event) => setRuleStatus(event.currentTarget.value)}>
+              <option value="">All statuses</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option>
+            </select></label>
+          </div>
           <details className="calculation-details"><summary>How rules work</summary>
             <p>Higher priority wins. Conflicting ties stay uncategorised. Rules match normalized exact names or whole phrases and the category type; transfers are excluded.</p>
           </details>
           {categories.length === 0 && <p className="policy-note">Add a category before creating a rule.</p>}
           {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list" aria-label="Merchant rules">
-            {rules.map((item) => <li key={item.id}>
+            {visibleRules.map((item) => <li key={item.id}>
               <span>{item.pattern} → {categories.find((category) => category.id === item.categoryId)?.name ?? "Unknown category"}
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
               </span>
@@ -141,7 +172,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
                 <button disabled={busy} type="button" className="destructive-action" aria-label={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete</button>
               </div>
             </li>)}
-            {rules.length === 0 && <li>No rules yet.</li>}
+            {visibleRules.length === 0 && <li className="settings-empty">{rules.length === 0 ? "No rules yet." : "No matching rules."}</li>}
           </ul>}
           {editor === "rule" && <Modal title={rule.id ? "Edit rule" : "Add rule"} busy={busy} onClose={() => { setEditor(null); setError(""); }}>
           {error && <p role="alert">{error}</p>}

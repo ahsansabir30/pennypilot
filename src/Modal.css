@@ -16,7 +16,17 @@
 .finance-modal .transaction-form input:not([type="checkbox"]):not([type="color"]),
 .finance-modal .transaction-form select, .finance-modal .transaction-form textarea,
 .finance-modal .category-editor-field select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #cbd7cb; border-radius: 9px; background: #fff; color: #223d2d; font: inherit; }
-.finance-modal .transaction-form .budget-amount-input input:not([type="checkbox"]):not([type="color"]) { padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 18px; }
+.finance-modal .transaction-form input:not([type="checkbox"]):not([type="color"]),
+.finance-modal .transaction-form select,
+.finance-modal .category-editor-field select { box-sizing: border-box; height: 48px; }
+.finance-modal .transaction-form select,
+.finance-modal .category-editor-field select { appearance: none; padding-right: 36px; background-image: url("./select-chevron.svg?no-inline"); background-position: right 12px center; background-repeat: no-repeat; }
+@media (forced-colors: active) {
+  .finance-modal .transaction-form select,
+  .finance-modal .category-editor-field select { appearance: auto; background-image: none; }
+}
+.finance-modal .budget-amount-input { box-sizing: border-box; height: 48px; }
+.finance-modal .transaction-form .budget-amount-input input:not([type="checkbox"]):not([type="color"]) { height: 46px; min-height: 0; padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 18px; }
 .finance-modal :focus-visible { outline: 3px solid #4f8b68; outline-offset: 3px; }
 .finance-modal button:disabled, .finance-modal input:disabled, .finance-modal select:disabled, .finance-modal textarea:disabled { opacity: .6; cursor: wait; }
 .finance-modal button { min-height: 44px; padding: 8px 12px; border: 1px solid #dbe3d9; border-radius: 8px; background: #fff; color: #304438; cursor: pointer; }
@@ -30,8 +40,11 @@
 .budget-transactions li > div { min-width: 0; }
 .budget-transactions p { margin: 6px 0 0; font-size: 13px; color: #647269; }
 .budget-transaction-amount { flex-shrink: 0; font-variant-numeric: tabular-nums; }
-.budget-transaction-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
-.budget-transaction-pages p { font-size: 13px; }
+.budget-transaction-pages { display: flex; align-items: center; justify-content: center; gap: 18px; padding-top: 8px; }
+.budget-transaction-pages p { margin: 0; text-align: center; font-size: 13px; color: #647269; font-variant-numeric: tabular-nums; }
+.finance-modal .budget-transaction-pages button { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 0; }
+.finance-modal .budget-transaction-pages button:disabled { opacity: .35; cursor: default; }
+.budget-transaction-pages svg { width: 18px; height: 18px; }
 .category-editor-merchant { margin: 0 0 24px; color: #647269; font-size: 14px; overflow-wrap: anywhere; }
 .category-editor-field { display: grid; gap: 8px; color: #647269; font-size: 12px; font-weight: 600; }
 .category-editor-field select { min-height: 48px; font-size: 15px; }
@@ -42,7 +55,5 @@
   .modal-heading, .modal-body { padding: 18px; }
   .finance-modal .modal-actions { margin: 24px -18px -18px; padding: 16px 18px; }
   .finance-modal .modal-actions button { flex: 1 1 140px; }
-  .budget-transaction-pages button { flex: 1 1 140px; }
-  .budget-transaction-pages p { width: 100%; order: -1; }
   .finance-modal .transaction-form-grid { grid-template-columns: minmax(0, 1fr); }
 }

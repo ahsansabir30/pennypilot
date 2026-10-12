@@ -51,8 +51,9 @@ export default function FinancialHighlights({ month, refreshKey }: {
           <strong>No budgets this month.</strong>
           <a className="lock-button" href="#/budgets">Set your first budget</a>
         </div> : <>
-          <p className="preview-caption">{current.rows.length} budgeted {current.rows.length === 1 ? "category" : "categories"} · {overLimitCount} over limit · {current.periodEnd ? `Recorded through ${current.periodEnd}` : "Future month; no elapsed spending period"}</p>
-          <ul className="preview-list">
+          <div className="budget-preview-summary"><span>{current.rows.length} {current.rows.length === 1 ? "category" : "categories"}</span>
+            {overLimitCount > 0 && <span className="plan-status over">{overLimitCount} over limit</span>}</div>
+          <ul className="preview-list budget-preview-list">
             {previewBudgets.map((row) => {
               const used = BigInt(row.usedPence), limit = BigInt(row.limitPence);
               const over = used > limit;
@@ -66,8 +67,7 @@ export default function FinancialHighlights({ month, refreshKey }: {
               </li>;
             })}
           </ul>
-          {current.rows.length > 3 && <p className="preview-caption">Top 3 of {current.rows.length} categories by usage</p>}
-          <p className="policy-note">Expenses less refunds. Transfers excluded; history may be incomplete.</p>
+          {current.rows.length > 3 && <p className="preview-caption">Showing 3 of {current.rows.length}</p>}
         </>}
     </article>
     <article className="panel planning-panel" aria-labelledby="goal-preview-title">

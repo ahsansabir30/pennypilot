@@ -36,7 +36,8 @@ describe("dashboard financial highlights", () => {
     expect(within(overview).getAllByRole("listitem").map((item) => item.textContent?.match(/Exact category \d/)?.[0]))
       .toEqual(["Exact category 4", "Exact category 3", "Exact category 2"]);
     expect(screen.queryByText("Exact category 1")).toBeNull();
-    expect(screen.getByText(/4 budgeted categories · 4 over limit/)).toBeTruthy();
+    expect(screen.getByText("4 categories")).toBeTruthy();
+    expect(screen.getByText("4 over limit")).toBeTruthy();
   });
 
   it("shows persisted allowance and explicit savings progress without invented balances or projections", async () => {
@@ -46,8 +47,7 @@ describe("dashboard financial highlights", () => {
     expect(screen.getByRole("progressbar", { name: "Fictional food allowance used" })).toHaveProperty("value", 100);
     expect(await screen.findByText("0% saved")).toBeTruthy();
     expect(screen.getByText("£100.00 to go")).toBeTruthy();
-    expect(screen.getByText(/Recorded through 2024-02-09/)).toBeTruthy();
-    expect(screen.getByText(/history may be incomplete/)).toBeTruthy();
+    expect(screen.queryByText(/Recorded through|history may be incomplete|Expenses less refunds/)).toBeNull();
     expect(screen.queryByText("Private note")).toBeNull();
   });
 
@@ -112,12 +112,13 @@ describe("dashboard financial highlights", () => {
       ...budgets, rows: Array.from({ length: 4 }, (_, index) => ({ ...budgets.rows[0], categoryId: index + 1, categoryName: `Fictional category ${index + 1}`, usedPence: index === 3 ? "25000" : "1000" })),
     } : Array.from({ length: 4 }, (_, index) => ({ ...goal, id: index + 1, name: `Fictional goal ${index + 1}` })));
     render(<FinancialHighlights {...props} />);
-    await screen.findByText("Top 3 of 4 categories by usage");
+    await screen.findByText("Showing 3 of 4");
     const overview = screen.getByRole("region", { name: "Budget and savings overview" });
     expect(within(overview).getAllByRole("progressbar")).toHaveLength(6);
     expect(screen.getByText("Fictional category 4")).toBeTruthy();
     expect(screen.queryByText("Fictional category 3")).toBeNull();
-    expect(screen.getByText(/4 budgeted categories · 1 over limit/)).toBeTruthy();
+    expect(screen.getByText("4 categories")).toBeTruthy();
+    expect(screen.getByText("1 over limit")).toBeTruthy();
     expect(await screen.findByText("3 of 4 goals")).toBeTruthy();
   });
 });

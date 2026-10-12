@@ -25,8 +25,7 @@ describe("budget transaction popup", () => {
       search: "", sort: "date_desc", page: 2, pageSize: 10,
     });
     render(<BudgetTransactions {...props} periodEnd={null} />);
-    expect(screen.getByText(/no elapsed period/)).toBeTruthy();
-    expect(screen.getByText(/No recorded expense or refund/)).toBeTruthy();
+    expect(screen.getByText("No spending yet this month.")).toBeTruthy();
     expect(mock).not.toHaveBeenCalled();
   });
 
@@ -34,15 +33,17 @@ describe("budget transaction popup", () => {
     mock.mockResolvedValue(data);
     render(<BudgetTransactions {...props} />);
     expect(await screen.findByText("-£3.00")).toBeTruthy();
-    expect(screen.getByText(/Refund · Manual category/)).toBeTruthy();
+    expect(screen.getByText(/Refund/)).toBeTruthy();
+    expect(screen.queryByText(/Manual category|Current category choices|Expenses less refunds|through/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Next transactions" }).textContent).toBe("");
     expect(mock).toHaveBeenCalledWith("list_transactions", { filter: budgetTransactionFilter(props.month, 1, props.periodEnd, 0) });
     fireEvent.click(screen.getByRole("button", { name: "Next transactions" }));
     await waitFor(() => expect(mock).toHaveBeenLastCalledWith("list_transactions", {
       filter: budgetTransactionFilter(props.month, 1, props.periodEnd, 1),
     }));
-    expect(await screen.findByText("Page 2 of 2 · 11 records")).toBeTruthy();
+    expect(await screen.findByText("11 of 11 transactions")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Previous transactions" }));
-    await screen.findByText("Page 1 of 2 · 11 records");
+    await screen.findByText("1–10 of 11 transactions");
     fireEvent.click(screen.getByRole("button", { name: "Close transactions" }));
     expect(props.onClose).toHaveBeenCalledOnce();
   });
@@ -58,7 +59,7 @@ describe("budget transaction popup", () => {
     expect(screen.queryByRole("list")).toBeNull();
     mock.mockResolvedValue({ ...data, total: 0, transactions: [] });
     fireEvent.click(screen.getByRole("button", { name: "Retry budget transactions" }));
-    expect(await screen.findByText(/No recorded expense or refund/)).toBeTruthy();
+    expect(await screen.findByText("No transactions in this budget period.")).toBeTruthy();
   });
 
   it("hides cached rows on scope/refresh changes and ignores late old responses", async () => {
@@ -83,7 +84,9 @@ describe("budget transaction popup", () => {
     render(<BudgetTransactions {...props} />);
     await screen.findByText("-£3.00");
     fireEvent.click(screen.getByRole("button", { name: "Next transactions" }));
-    await screen.findByText("Page 1 of 1 · 1 records");
+    await screen.findByText("1 transaction");
+    expect(screen.getByRole("button", { name: "Next transactions" })).toHaveProperty("disabled", true);
+    expect(screen.getByRole("button", { name: "Previous transactions" })).toHaveProperty("disabled", true);
     expect(mock).toHaveBeenCalledTimes(3);
   });
 });
