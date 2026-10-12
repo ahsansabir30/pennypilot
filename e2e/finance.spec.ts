@@ -207,7 +207,9 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   await saveFoodBudget(page);
   await expect(page.getByText("£93.00 used / £100.00 limit", { exact: true })).toBeVisible();
   const trigger = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
-  await trigger.click();
+  await expect(trigger).toHaveText("");
+  const categoryTitle = await page.getByRole("heading", { name: "Fictional Food", exact: true }).boundingBox();
+  await page.mouse.click(categoryTitle!.x + categoryTitle!.width / 2, categoryTitle!.y + categoryTitle!.height / 2);
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions", exact: true });
   const rows = dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem");
   await expect(rows).toHaveCount(10);
@@ -246,6 +248,12 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   await expect(rows).toHaveCount(10);
   await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
   await expect(trigger).toBeFocused();
+  await trigger.press("Enter");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await trigger.press("Space");
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
   const filter = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").at(-1)?.args.filter);
   expect(filter).toEqual({ month: "2024-02", categoryId: 1, kind: "spending", throughDate: "2024-02-15", search: "", sort: "date_desc", page: 0, pageSize: 10 });
 });

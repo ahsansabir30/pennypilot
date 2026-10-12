@@ -24,6 +24,9 @@ describe("monthly budgets", () => {
     expect(screen.queryByText(/Expenses less refunds|Limits apply only|No comparable|Previous recorded|through/)).toBeNull();
     expect(screen.queryByText("Recorded spending, not complete bank history.")).toBeNull();
     expect(screen.queryByLabelText("Comparison period")).toBeNull();
+    const open = screen.getByRole("button", { name: "View transactions for Fictional Food" });
+    expect(open.textContent).toBe("");
+    expect(open.getAttribute("aria-haspopup")).toBe("dialog");
   });
 
   it("retains exact large usage and allowance without displaying comparisons", async () => {
