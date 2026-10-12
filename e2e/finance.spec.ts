@@ -208,6 +208,9 @@ test("budget drilldown paginates exact elapsed category spending with signed ref
   await expect(page.getByText("£93.00 used / £100.00 limit", { exact: true })).toBeVisible();
   const trigger = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
   await expect(trigger).toHaveText("");
+  expect(await trigger.evaluate((element) => getComputedStyle(element).borderRadius)).toBe("0px");
+  await trigger.hover();
+  expect(await trigger.evaluate((element) => getComputedStyle(element).backgroundColor)).toBe("rgb(240, 244, 239)");
   const categoryTitle = await page.getByRole("heading", { name: "Fictional Food", exact: true }).boundingBox();
   await page.mouse.click(categoryTitle!.x + categoryTitle!.width / 2, categoryTitle!.y + categoryTitle!.height / 2);
   const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions", exact: true });

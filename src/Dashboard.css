@@ -274,7 +274,8 @@
 .budget-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; column-gap: 24px; padding: 18px 0 8px; border-bottom: 1px solid var(--finance-border); }
 .budget-row > div { min-width: 0; }
 .budget-row { position: relative; isolation: isolate; }
-.finance-shell .budget-row-open { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 8px; background: transparent; }
+.finance-shell .budget-row-open { position: absolute; inset: 0; z-index: 0; width: 100%; height: 100%; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+:root body .budget-row-open:enabled:hover { background-color: #f0f4ef; }
 .budget-row-main, .budget-row-usage, .budget-row-remaining { position: relative; z-index: 1; pointer-events: none; }
 .budget-row-actions { position: relative; z-index: 1; }
 .budget-row-title { display: flex; align-items: center; gap: 9px; }
