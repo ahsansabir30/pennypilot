@@ -122,9 +122,9 @@
 
 .settings-list .budget-category-dot { display: inline-block; margin-right: 8px; }
 .category-type { text-transform: capitalize; }
-.management-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.management-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .management-heading h2, .management-heading h3 { margin: 0; font-size: 18px; letter-spacing: -.4px; }
-.finance-shell .management-heading button { margin: 0; flex-shrink: 0; background: #edf3ed; color: #285c42; font-weight: 600; }
+.finance-shell .management-heading button { margin: 0 0 0 auto; flex-shrink: 0; background: #285c42; color: #fff; font-weight: 600; }
 .management-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .finance-shell .management-row-actions button { margin: 0; font-size: 12px; }
 .finance-shell .management-row-actions .destructive-action { background: transparent; border-color: transparent; color: #84392f; }
@@ -274,6 +274,7 @@
 .budget-row-actions button { margin: 0; font-size: 12px; }
 .budget-row-actions .budget-remove { border-color: transparent; background: transparent; color: #84392f; }
 .budget-row > .calculation-details { grid-column: 1 / -1; margin: 0; }
+.budget-row > .budget-comparison { grid-column: 1 / -1; color: var(--finance-muted); }
 .budget-limit-form { background: #f6f8f4; border-radius: 14px; padding: 22px; }
 .budget-editor-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .budget-editor-heading h3 { margin: 0; }

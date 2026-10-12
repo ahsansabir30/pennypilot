@@ -127,8 +127,9 @@ export const test = base.extend<{ startStatus: StartStatus; blockedCommand: stri
           (!filter.month || row.transactionDate.startsWith(String(filter.month))) &&
           (!filter.from || row.transactionDate >= String(filter.from)) &&
           (!filter.to || row.transactionDate <= String(filter.to)) &&
+          (!filter.throughDate || row.transactionDate <= String(filter.throughDate)) &&
           (filter.accountId == null || row.accountId === filter.accountId) &&
-          (filter.kind == null || row.kind === filter.kind) &&
+          (filter.kind == null || row.kind === filter.kind || (filter.kind === "spending" && (row.kind === "expense" || row.kind === "refund"))) &&
           (filter.categoryId == null || row.categoryId === filter.categoryId) &&
           (!filter.search || `${row.merchant ?? ""} ${row.description}`.toLocaleLowerCase("en-GB").includes(String(filter.search).toLocaleLowerCase("en-GB"))));
       }

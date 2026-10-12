@@ -16,12 +16,11 @@ describe("monthly budgets", () => {
   beforeEach(() => { mock.mockReset(); mock.mockImplementation(async (command) => command === "list_budgets" ? data : undefined); });
   afterEach(cleanup);
 
-  it("keeps accounting and history caveats available in period details", async () => {
+  it("keeps concise accounting and period notes without expandable budget details", async () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
-    const summary = await screen.findByText("Period details");
-    expect(summary.closest("details")?.open).toBe(false);
-    fireEvent.click(summary);
-    expect(summary.closest("details")?.open).toBe(true);
+    await screen.findByRole("list", { name: "Category budgets" });
+    expect(screen.queryByText("Period details")).toBeNull();
+    expect(screen.queryByText("Calculation details")).toBeNull();
     expect(screen.getByText(/Expenses less refunds; transfers and income excluded/)).toBeTruthy();
     expect(screen.getByText(/Limits apply only to this month/)).toBeTruthy();
     expect(screen.getByText("Recorded spending, not complete bank history.")).toBeTruthy();
@@ -49,7 +48,7 @@ describe("monthly budgets", () => {
     expect(screen.getByText("Exceeded budget · 123.5%")).toBeTruthy();
     expect(screen.getByRole("progressbar", { name: "Fictional Food budget progress" })).toHaveProperty("value", 100);
     expect(screen.getByText(/No comparable category records/)).toBeTruthy();
-    expect(screen.getByText(/current period 2024-02-01 through 2024-02-09/)).toBeTruthy();
+    expect(screen.getByText(/2024-02-01 through 2024-02-09/)).toBeTruthy();
   });
 
   it("saves exact pence, edits limits and persists comparison preference", async () => {
@@ -115,6 +114,22 @@ describe("monthly budgets", () => {
     await act(async () => reject(new Error("Fictional usage reload failed")));
     expect(screen.getByRole("alert").textContent).toContain("Fictional usage reload failed");
     expect(screen.queryByText("£123.45 used / £100.00 limit")).toBeNull();
+  });
+
+  it("closes the drilldown on a period change without reopening it for a new month", async () => {
+    let finish!: (value: unknown) => void;
+    mock.mockImplementation(async (command, args) => {
+      if (command === "list_transactions") return new Promise((resolve) => { finish = resolve; });
+      return { ...data, month: (args as { month: string }).month };
+    });
+    const view = render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
+    fireEvent.click(await screen.findByRole("button", { name: "View transactions for Fictional Food" }));
+    expect(screen.getByText("Loading budget transactions...")).toBeTruthy();
+    view.rerender(<Budgets month="2024-03" categories={categories} refreshKey={0} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await screen.findByRole("button", { name: "View transactions for Fictional Food" });
+    await act(async () => finish({ page: 0, pageSize: 10, total: 0, transactions: [] }));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("keeps pending budget inputs fixed and labels missing records honestly", async () => {

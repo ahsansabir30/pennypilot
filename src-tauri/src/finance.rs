@@ -51,6 +51,8 @@ pub(super) struct TransactionInput {
 pub(super) struct TransactionFilter {
     month: Option<String>,
     kind: Option<String>,
+    #[serde(default)]
+    through_date: Option<String>,
     category_id: Option<i64>,
     search: Option<String>,
     sort: String,
@@ -529,6 +531,12 @@ fn list_transactions_from(
     if let Some(month) = filter.month.as_deref() {
         validate_month(month)?;
     }
+    if let Some(date) = filter.through_date.as_deref() {
+        validate_iso_date(date)?;
+        if filter.month.as_deref() != Some(&date[..7]) {
+            return Err(WorkspaceError::InvalidFinancialInput);
+        }
+    }
     if filter.page > MAX_PAGE
         || filter.page_size == 0
         || filter.page_size > MAX_PAGE_SIZE
@@ -537,7 +545,10 @@ fn list_transactions_from(
             .as_ref()
             .is_some_and(|search| search.chars().count() > 100)
         || filter.kind.as_ref().is_some_and(|kind| {
-            !matches!(kind.as_str(), "income" | "expense" | "refund" | "transfer")
+            !matches!(
+                kind.as_str(),
+                "income" | "expense" | "refund" | "transfer" | "spending"
+            )
         })
     {
         return Err(WorkspaceError::InvalidFinancialInput);
@@ -555,11 +566,12 @@ fn list_transactions_from(
     let page_size = filter.page_size as i64;
     let offset = (filter.page * filter.page_size) as i64;
     let where_clause = "WHERE (?1 IS NULL OR substr(t.transaction_date, 1, 7) = ?1)
-        AND (?2 IS NULL OR t.kind = ?2)
+        AND (?2 IS NULL OR t.kind = ?2 OR (?2 = 'spending' AND t.kind IN ('expense', 'refund')))
         AND (?3 IS NULL OR t.category_id = ?3)
         AND (?4 = '' OR (COALESCE(t.description, '') || ' ' ||
             COALESCE(t.merchant, '') || ' ' || COALESCE(t.merchant_normalized, ''))
-            LIKE ?4 ESCAPE '\\' COLLATE NOCASE)";
+            LIKE ?4 ESCAPE '\\' COLLATE NOCASE)
+        AND (?5 IS NULL OR t.transaction_date <= ?5)";
     let total = connection
         .query_row(
             &format!("SELECT count(*) FROM transactions t {where_clause}"),
@@ -567,7 +579,8 @@ fn list_transactions_from(
                 filter.month,
                 filter.kind,
                 filter.category_id,
-                search_pattern
+                search_pattern,
+                filter.through_date
             ],
             |row| row.get::<_, u32>(0),
         )
@@ -579,7 +592,7 @@ fn list_transactions_from(
                     t.merchant_normalized, t.category_source, t.category_explanation
              FROM transactions t LEFT JOIN categories c ON c.id = t.category_id
              {where_clause}
-             ORDER BY {ordering} LIMIT ?5 OFFSET ?6"
+             ORDER BY {ordering} LIMIT ?6 OFFSET ?7"
         ))
         .map_err(|_| WorkspaceError::Storage)?;
     let transactions = statement
@@ -589,6 +602,7 @@ fn list_transactions_from(
                 filter.kind,
                 filter.category_id,
                 search_pattern,
+                filter.through_date,
                 page_size,
                 offset
             ],
@@ -997,6 +1011,7 @@ mod tests {
         let filter = TransactionFilter {
             month: Some("2025-12".to_owned()),
             kind: Some("expense".to_owned()),
+            through_date: None,
             category_id: Some(grocery_id),
             search: Some("NORTH".to_owned()),
             sort: "date_desc".to_owned(),
@@ -1026,6 +1041,100 @@ mod tests {
             list_transactions_from(&connection, &TransactionFilter { page: 1, ..filter })
                 .expect("second page");
         assert_eq!(second_page.transactions[0].transaction_date, "2025-12-01");
+    }
+
+    #[test]
+    fn budget_transaction_filters_use_current_categories_and_exact_elapsed_dates() {
+        let connection = finance_db();
+        for (kind, date, amount, category) in [
+            ("expense", "2024-02-01", 1200, "Groceries"),
+            ("refund", "2024-02-15", 200, "Groceries"),
+            ("expense", "2024-02-16", 3000, "Groceries"),
+            ("expense", "2024-02-29", 4000, "Groceries"),
+            ("expense", "2024-01-31", 5000, "Groceries"),
+            ("expense", "2024-03-01", 6000, "Groceries"),
+            ("expense", "2024-02-10", 7000, "Dining"),
+            ("income", "2024-02-10", 8000, "Salary"),
+            ("transfer", "2024-02-10", 9000, ""),
+        ] {
+            add_test_transaction(&connection, kind, date, amount, category);
+        }
+        let category = connection
+            .query_row(
+                "SELECT id FROM categories WHERE name='Groceries'",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("category");
+        let filter = TransactionFilter {
+            month: Some("2024-02".to_owned()),
+            kind: Some("spending".to_owned()),
+            through_date: Some("2024-02-15".to_owned()),
+            category_id: Some(category),
+            search: None,
+            sort: "date_desc".to_owned(),
+            page: 0,
+            page_size: 1,
+        };
+        let first = list_transactions_from(&connection, &filter).expect("refund page");
+        assert_eq!(first.total, 2);
+        assert_eq!(first.transactions[0].kind, "refund");
+        assert_eq!(first.transactions[0].amount_pence, 200);
+        let second = list_transactions_from(
+            &connection,
+            &TransactionFilter {
+                page: 1,
+                ..filter.clone()
+            },
+        )
+        .expect("expense page");
+        assert_eq!(second.transactions[0].transaction_date, "2024-02-01");
+        let full = list_transactions_from(
+            &connection,
+            &TransactionFilter {
+                through_date: Some("2024-02-29".to_owned()),
+                page_size: 100,
+                ..filter.clone()
+            },
+        )
+        .expect("leap month");
+        assert_eq!(full.total, 4);
+        // Manual corrections into and out of the category must affect the very next query.
+        let corrected_id = connection
+            .query_row(
+                "SELECT id FROM transactions WHERE amount_pence=7000",
+                [],
+                |row| row.get::<_, i64>(0),
+            )
+            .expect("correction");
+        update_category_from(&connection, corrected_id, Some(category)).expect("manual choice");
+        let corrected = list_transactions_from(&connection, &filter).expect("updated scope");
+        assert_eq!(corrected.total, 3);
+        update_category_from(&connection, corrected_id, None).expect("uncategorised");
+        assert_eq!(
+            list_transactions_from(&connection, &filter)
+                .expect("removed scope")
+                .total,
+            2
+        );
+        for invalid in ["2024-02-30", "2024-03-01", "0999-02-01"] {
+            assert!(list_transactions_from(
+                &connection,
+                &TransactionFilter {
+                    through_date: Some(invalid.to_owned()),
+                    ..filter.clone()
+                }
+            )
+            .is_err());
+        }
+        assert!(list_transactions_from(
+            &connection,
+            &TransactionFilter {
+                month: None,
+                ..filter
+            }
+        )
+        .is_err());
     }
 
     #[test]

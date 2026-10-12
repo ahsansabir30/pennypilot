@@ -81,14 +81,14 @@ export default function Modal({ title, busy, onClose, children }: {
   }, []);
 
   return <div className="modal-backdrop">
-    <div className="finance-modal" role="dialog" aria-modal="true" aria-labelledby={titleId}
+    <div className="finance-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} aria-busy={busy}
       tabIndex={-1} ref={dialogRef}>
       <div className="modal-heading">
         <h2 id={titleId}>{title}</h2>
         <button className="modal-close" type="button" aria-label={`Close ${title}`}
           disabled={busy} onClick={onClose}>×</button>
       </div>
-      {children}
+      <div className="modal-body">{children}</div>
     </div>
   </div>;
 }

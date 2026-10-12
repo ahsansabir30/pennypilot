@@ -1,27 +1,48 @@
 .modal-backdrop { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 24px; background: rgb(15 35 25 / 45%); }
-.finance-modal { width: min(100%, 740px); min-width: 0; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #dbe3d9; border-radius: 18px; background: #fff; padding: 24px; box-shadow: 0 20px 80px rgb(15 35 25 / 24%); }
-.modal-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+.finance-modal { width: min(100%, 740px); min-width: 0; max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #dbe3d9; border-radius: 18px; background: #fff; padding: 0; box-shadow: 0 20px 80px rgb(15 35 25 / 24%); }
+.modal-heading { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 24px; border-bottom: 1px solid #e1e7df; background: #fff; }
 .modal-heading h2 { margin: 0; font-size: 21px; }
+.modal-body { padding: 24px; overflow-wrap: anywhere; }
 .finance-modal .modal-close { flex: 0 0 44px; min-width: 44px; min-height: 44px; margin: 0; border: 0; border-radius: 10px; background: #eef2ec; color: #304438; cursor: pointer; font-size: 24px; }
 .finance-modal .transaction-form { margin: 0; padding: 0; border: 0; background: transparent; }
 .finance-modal fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
 .finance-modal .transaction-form-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .finance-modal .transaction-form-grid label { align-content: start; }
 .finance-modal .merchant-field { grid-column: 1 / -1; }
-.finance-modal .modal-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 18px; }
+.finance-modal .modal-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin: 24px -24px -24px; padding: 18px 24px; border-top: 1px solid #e1e7df; background: #f7f9f5; }
 .finance-modal .modal-actions button { margin: 0; }
+.finance-modal .modal-actions button[type="submit"] { background: #285c42; border-color: #285c42; color: #fff; font-weight: 600; }
+.finance-modal .transaction-form label, .finance-modal .category-editor-field { gap: 8px; color: #526157; }
+.finance-modal .transaction-form input:not([type="checkbox"]):not([type="color"]),
+.finance-modal .transaction-form select, .finance-modal .transaction-form textarea,
+.finance-modal .category-editor-field select { width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid #cbd7cb; border-radius: 9px; background: #fff; color: #223d2d; font: inherit; }
+.finance-modal .transaction-form .budget-amount-input input:not([type="checkbox"]):not([type="color"]) { padding: 0; border: 0; border-radius: 0; background: transparent; font-size: 18px; }
+.finance-modal :focus-visible { outline: 3px solid #4f8b68; outline-offset: 3px; }
+.finance-modal button:disabled, .finance-modal input:disabled, .finance-modal select:disabled, .finance-modal textarea:disabled { opacity: .6; cursor: wait; }
 .finance-modal button { min-height: 44px; padding: 8px 12px; border: 1px solid #dbe3d9; border-radius: 8px; background: #fff; color: #304438; cursor: pointer; }
 .finance-modal .add-transaction-button { background: #285c42; color: #fff; }
 .finance-management > .add-transaction-button,
 .categorisation-grid > div > .add-transaction-button { background: #285c42; border-color: #285c42; color: #fff; }
 .modal-close:disabled { opacity: .5; cursor: wait; }
-.finance-modal [role="alert"] { color: #943832; margin-bottom: 16px; }
+.finance-modal [role="alert"] { color: #943832; margin-bottom: 16px; padding: 12px; border: 1px solid #eccbc6; border-radius: 9px; background: #fff5f3; }
+.budget-transactions { list-style: none; padding: 0; margin: 16px 0; }
+.budget-transactions li { display: flex; align-items: start; justify-content: space-between; gap: 16px; padding: 16px 0; border-bottom: 1px solid #e1e7df; }
+.budget-transactions li > div { min-width: 0; }
+.budget-transactions p { margin: 6px 0 0; font-size: 13px; color: #647269; }
+.budget-transaction-amount { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.budget-transaction-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.budget-transaction-pages p { font-size: 13px; }
 .category-editor-merchant { margin: 0 0 24px; color: #647269; font-size: 14px; overflow-wrap: anywhere; }
 .category-editor-field { display: grid; gap: 8px; color: #647269; font-size: 12px; font-weight: 600; }
 .category-editor-field select { min-height: 48px; font-size: 15px; }
-.category-editor-form .modal-actions { gap: 12px; margin-top: 24px; }
+.category-editor-form .modal-actions { gap: 12px; }
 @media (max-width: 620px) {
   .modal-backdrop { padding: 12px; }
-  .finance-modal { padding: 18px; max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .finance-modal { max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 14px; }
+  .modal-heading, .modal-body { padding: 18px; }
+  .finance-modal .modal-actions { margin: 24px -18px -18px; padding: 16px 18px; }
+  .finance-modal .modal-actions button { flex: 1 1 140px; }
+  .budget-transaction-pages button { flex: 1 1 140px; }
+  .budget-transaction-pages p { width: 100%; order: -1; }
   .finance-modal .transaction-form-grid { grid-template-columns: minmax(0, 1fr); }
 }

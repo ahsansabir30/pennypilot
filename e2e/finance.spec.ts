@@ -32,10 +32,16 @@ const popupEditors = [
 ];
 
 for (const editor of popupEditors) {
-  test(`${editor.add} popup traps focus, retains failed saves and blocks closing while saving`, async ({ page }) => {
+  test(`${editor.add} popup traps focus, retains failed saves and blocks closing while saving`, async ({ page }, testInfo) => {
     await home(page);
     if (editor.page !== "Transactions") await navigate(page, editor.page);
     const trigger = page.getByRole("button", { name: editor.add, exact: true });
+    const header = trigger.locator("..");
+    const headerBounds = await header.boundingBox();
+    const triggerBounds = await trigger.boundingBox();
+    expect(headerBounds).not.toBeNull();
+    expect(triggerBounds).not.toBeNull();
+    expect(Math.abs(headerBounds!.x + headerBounds!.width - triggerBounds!.x - triggerBounds!.width)).toBeLessThanOrEqual(1);
     await expect(page.getByLabel(editor.field, { exact: true })).toHaveCount(0);
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: editor.add, exact: true });
@@ -63,6 +69,7 @@ for (const editor of popupEditors) {
     await dialog.getByLabel(editor.field, { exact: true }).fill(editor.value);
     if (editor.amount) await dialog.getByLabel(editor.amount, { exact: true }).fill("10.01");
     if (editor.select) await dialog.getByRole("combobox", { name: editor.select, exact: true }).selectOption("1");
+    await page.screenshot({ path: testInfo.outputPath("popup.png"), fullPage: true });
     await page.evaluate((command) => window.__pennyTest.failNext(command, "Fictional popup save failed."), editor.command);
     await dialog.getByRole("button", { name: editor.save, exact: true }).click();
     await expect(dialog.getByRole("alert")).toContainText("Fictional popup save failed.");
@@ -89,6 +96,148 @@ for (const editor of popupEditors) {
     await expect(dialog).toHaveCount(0);
   });
 }
+
+async function saveFoodBudget(page: Page) {
+  await page.getByRole("button", { name: "Add budget", exact: true }).click();
+  await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
+  await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("100");
+  await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
+  await expect(page.getByRole("button", { name: "View transactions for Fictional Food", exact: true })).toBeVisible();
+}
+
+test("budget drilldown paginates exact elapsed category spending with signed refunds and manual corrections", async ({ page }, testInfo) => {
+  await home(page);
+  await navigate(page, "Categories & Rules");
+  await page.getByRole("button", { name: "Add category", exact: true }).click();
+  await page.getByLabel("Category name").fill("Fictional Travel");
+  await page.getByRole("button", { name: "Save category", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Edit Fictional Travel", exact: true })).toBeVisible();
+  await navigate(page, "Transactions");
+  for (const [date, category, merchant] of [
+    ["2024-01-31", "1", "Fictional prior month"],
+    ["2024-03-01", "1", "Fictional next month"],
+    ["2024-02-15", "3", "Fictional other category"],
+  ]) {
+    await page.getByRole("button", { name: "Add transaction", exact: true }).click();
+    await page.getByLabel("Amount (GBP)", { exact: true }).fill("1.01");
+    await page.getByLabel("Transaction date", { exact: true }).fill(date);
+    await page.getByRole("combobox", { name: "Category", exact: true }).selectOption(category);
+    await page.getByLabel("Description", { exact: true }).fill("Fictional scope boundary");
+    await page.getByLabel("Merchant optional", { exact: true }).fill(merchant);
+    await page.getByRole("button", { name: "Save transaction", exact: true }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Add transaction", exact: true })).toBeEnabled();
+  }
+  await page.getByRole("button", { name: "Edit category for Fictional Merchant 15", exact: true }).click();
+  await page.getByRole("combobox", { name: "Category for Fictional Merchant 15", exact: true }).selectOption("3");
+  await page.getByRole("button", { name: "Save category choice" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await navigate(page, "Budgets");
+  await saveFoodBudget(page);
+  await expect(page.getByText("£93.00 used / £100.00 limit", { exact: true })).toBeVisible();
+  const trigger = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions", exact: true });
+  const rows = dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem");
+  await expect(rows).toHaveCount(10);
+  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 12 records");
+  expect(await rows.locator("div > strong").allTextContents()).toEqual(
+    [14, 13, 12, 11, 10, 9, 8, 7, 6, 5].map((id) => `Fictional Merchant ${id}`));
+  for (const excluded of ["Fictional Merchant 16", "Fictional Merchant 15", "Fictional Merchant 2", "Fictional Merchant 4",
+    "Fictional prior month", "Fictional next month", "Fictional other category"]) {
+    await expect(dialog.getByText(excluded, { exact: true })).toHaveCount(0);
+  }
+  // First page: 14 down through 5; second page: refund 3 and expense 1.
+  await expect(rows.filter({ hasText: "Fictional Merchant 14" })).toContainText("£14.00");
+  await expect(dialog.getByText(/2024-02-01 through 2024-02-15/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("budget-transactions.png"), fullPage: true });
+  await dialog.getByRole("button", { name: "Next transactions" }).click();
+  await expect(rows).toHaveCount(2);
+  expect(await rows.locator("div > strong").allTextContents()).toEqual(["Fictional Merchant 3", "Fictional Merchant 1"]);
+  await expect(rows.filter({ hasText: "Fictional Merchant 3" })).toContainText("Refund · Manual category");
+  await expect(rows.filter({ hasText: "Fictional Merchant 3" })).toContainText("-£3.00");
+  await expect(dialog.getByText("Fictional Merchant 1", { exact: true })).toBeVisible();
+  for (const excluded of ["Fictional Merchant 2", "Fictional Merchant 4", "Fictional prior month", "Fictional next month", "Fictional other category"]) {
+    await expect(dialog.getByText(excluded, { exact: true })).toHaveCount(0);
+  }
+  await page.screenshot({ path: testInfo.outputPath("budget-refund.png"), fullPage: true });
+  await expect(dialog.getByRole("button", { name: "Next transactions" })).toBeDisabled();
+  await dialog.getByRole("button", { name: "Previous transactions" }).click();
+  await expect(rows).toHaveCount(10);
+  await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
+  await expect(trigger).toBeFocused();
+  const filter = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").at(-1)?.args.filter);
+  expect(filter).toEqual({ month: "2024-02", categoryId: 1, kind: "spending", throughDate: "2024-02-15", search: "", sort: "date_desc", page: 0, pageSize: 10 });
+});
+
+test("budget drilldown supports loading dismissal, failure retry and clean reopening", async ({ page }) => {
+  await home(page);
+  await navigate(page, "Budgets");
+  await saveFoodBudget(page);
+  const trigger = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
+  await page.evaluate(() => window.__pennyTest.hold("list_transactions"));
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions" });
+  await expect(dialog.getByRole("status")).toHaveText("Loading budget transactions...");
+  await expect(dialog.getByRole("button", { name: "Close transactions", exact: true })).toBeEnabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+  await page.evaluate(() => window.__pennyTest.release("list_transactions"));
+  await page.evaluate(() => window.__pennyTest.failNext("list_transactions", "Fictional drilldown unavailable."));
+  await trigger.click();
+  await expect(dialog.getByRole("alert")).toContainText("Fictional drilldown unavailable.");
+  await expect(dialog.getByRole("list")).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Retry budget transactions" }).click();
+  await expect(dialog.getByRole("list", { name: "Budget transactions", exact: true }).getByRole("listitem")).toHaveCount(10);
+  await dialog.getByRole("button", { name: "Next transactions" }).click();
+  await expect(dialog.getByRole("status")).toHaveText("Page 2 of 2 · 13 records");
+  await dialog.getByRole("button", { name: "Close Fictional Food budget transactions", exact: true }).click();
+  await trigger.click();
+  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 13 records");
+  await page.keyboard.press("Escape");
+});
+
+test("future budget drilldown is explicitly empty without requesting whole-month transactions", async ({ page }) => {
+  await home(page);
+  await navigate(page, "Budgets");
+  await page.getByLabel("Dashboard month", { exact: true }).fill("2024-03");
+  await expect(page.getByText("Future month; no elapsed period.", { exact: false })).toBeVisible();
+  await saveFoodBudget(page);
+  const count = await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").length);
+  await page.getByRole("button", { name: "View transactions for Fictional Food", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions" });
+  await expect(dialog.getByText(/2024-03: no elapsed period/)).toBeVisible();
+  await expect(dialog.getByText("No recorded expense or refund transactions in this budget period.", { exact: true })).toBeVisible();
+  await expect(dialog.getByRole("list")).toHaveCount(0);
+  expect(await page.evaluate(() => window.__pennyTest.calls.filter((call) => call.command === "list_transactions").length)).toBe(count);
+  await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
+});
+
+test("past budget drilldown includes persisted leap-day refunds through calendar month end", async ({ page }) => {
+  await home(page);
+  await page.getByRole("button", { name: "Add transaction", exact: true }).click();
+  await page.getByRole("combobox", { name: "Type", exact: true }).selectOption("refund");
+  await page.getByLabel("Amount (GBP)", { exact: true }).fill("1.01");
+  await page.getByLabel("Transaction date", { exact: true }).fill("2024-02-29");
+  await page.getByRole("combobox", { name: "Category", exact: true }).selectOption("1");
+  await page.getByLabel("Description", { exact: true }).fill("Fictional leap-day refund");
+  await page.getByRole("button", { name: "Save transaction", exact: true }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.clock.setFixedTime(new Date("2024-03-15T12:00:00Z"));
+  await navigate(page, "Budgets");
+  await saveFoodBudget(page);
+  await expect(page.getByText("£122.99 used / £100.00 limit", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "View transactions for Fictional Food", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Fictional Food budget transactions" });
+  await expect(dialog.getByText(/2024-02-01 through 2024-02-29/)).toBeVisible();
+  const refund = dialog.getByRole("listitem").filter({ hasText: "Fictional leap-day refund" });
+  await expect(refund).toContainText("-£1.01");
+  await expect(refund).toContainText("2024-02-29 · Refund");
+  await expect(dialog.getByRole("status")).toHaveText("Page 1 of 2 · 15 records");
+  await dialog.getByRole("button", { name: "Close transactions", exact: true }).click();
+});
 
 test("transaction category popup only persists deliberate saves and retains failed changes", async ({ page }) => {
   await home(page);
@@ -121,7 +270,8 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("100");
   await page.getByRole("button", { name: "Save monthly budget" }).click();
   await expect(page.getByRole("button", { name: "Edit budget for Fictional Food" })).toBeVisible();
-  await page.getByText("Period details", { exact: true }).click();
+  await expect(page.getByText("Period details", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Calculation details", { exact: true })).toHaveCount(0);
   await expect(page.getByText(/Expenses less refunds; transfers and income excluded/)).toBeVisible();
 
   async function checkLayout(name: string) {
@@ -234,9 +384,7 @@ test("earliest accepted source date keeps dashboard and budgets usable without i
   await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("10.00");
   await page.getByRole("button", { name: "Save monthly budget", exact: true }).click();
   await expect(page.getByText("£1.23 used / £10.00 limit", { exact: true })).toBeVisible();
-  await page.getByText("Period details", { exact: true }).click();
   await expect(page.getByText(/Previous period is outside the supported date range/)).toBeVisible();
-  await page.getByText("Calculation details", { exact: true }).click();
   await expect(page.getByText(/no change inferred/)).toBeVisible();
   await page.getByLabel("Comparison period", { exact: true }).selectOption("full_month");
   await expect(page.getByText(/no change inferred/)).toBeVisible();
@@ -446,9 +594,7 @@ test("budget add, validation, edit/cancel, comparison, details and remove/cancel
   await expect(panel.getByLabel("Monthly limit (GBP)")).toHaveValue("250.01");
   await panel.getByRole("button", { name: "Cancel budget", exact: true }).click();
   await expect(panel.getByRole("dialog")).toHaveCount(0);
-  await panel.getByText("Period details", { exact: true }).click();
-  await expect(panel.getByText(/current period 2024-02-01 through 2024-02-15/)).toBeVisible();
-  await panel.getByText("Calculation details", { exact: true }).click();
+  await expect(panel.getByText(/2024-02-01 through 2024-02-15/)).toBeVisible();
   await expect(panel.getByText(/No comparable category records/)).toBeVisible();
   await panel.getByRole("combobox", { name: "Comparison period", exact: true }).selectOption("full_month");
   await expect(panel.getByRole("status").filter({ hasText: "Comparison preference saved." })).toHaveText("Comparison preference saved.");

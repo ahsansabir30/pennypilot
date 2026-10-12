@@ -64,6 +64,12 @@ detailed accounting, workspace security, export and restore contracts.
   usage. Partial comparisons use the persisted mode and documented date caps.
 - Budget usage follows current categories, including manual corrections, and nets
   refunds. Retain negative usage; clamp only visual progress where appropriate.
+- Budget transaction popups must reuse `list_transactions` with the budget month,
+  current category ID, `kind: "spending"` (expenses/refunds) and `throughDate` equal
+  to the returned budget `periodEnd`. Rust validates the end within that month and
+  scopes both count and rows before pagination. Never replace a null elapsed end
+  with a full-month query. Show refunds as negative usage; income/transfers stay
+  excluded. Keep loading/error/retry and keyed stale-response protection.
 - Savings progress is explicitly entered, not inferred from cash flow. Preserve
   zero and overfunded progress; remaining is max(target - progress, 0). A target
   date is not a forecast. Any future estimate must identify its evidence/inputs.
@@ -117,6 +123,11 @@ detailed accounting, workspace security, export and restore contracts.
   explanations. Do not remove failure feedback or safety consent to reduce text.
 - Every visible control must work or be intentionally disabled with a clear state.
   Test save failure, cancel, confirmation, retries and refresh after mutations.
+- All record Add actions belong on the right of shared management heading rows,
+  retaining right alignment on mobile wraps. Shared Modal owns header/field/footer
+  styling. Budget details are a read-only transaction popup, not expandable
+  calculation sections; retain concise period/accounting and comparison notes
+  and the working persisted comparison-period preference on the page.
 - Record add/edit actions use the shared `src/Modal.tsx` popup, not inline forms:
   transactions, transaction category corrections, budget limits, savings goals,
   categories and merchant rules. Keep lists on their dedicated pages. Preserve

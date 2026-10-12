@@ -77,6 +77,13 @@ export type BudgetData = {
   previousEnd: string | null; comparisonMode: string; rows: BudgetRow[];
 };
 
+// A missing elapsed period must never become an unbounded month query.
+export function budgetTransactionFilter(month: string, categoryId: number, periodEnd: string | null, page: number) {
+  if (periodEnd === null) return null;
+  return { month, categoryId, kind: "spending", throughDate: periodEnd,
+    search: "", sort: "date_desc", page, pageSize: 10 };
+}
+
 export type SavingsGoal = {
   id: number; name: string; targetPence: number; progressPence: number;
   targetDate: string | null; notes: string;
