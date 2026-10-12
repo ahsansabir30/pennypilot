@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invoke } from "@tauri-apps/api/core";
 import SavingsGoals from "./SavingsGoals";
@@ -99,5 +99,26 @@ describe("savings goals", () => {
     expect(mock).not.toHaveBeenCalledWith("delete_savings_goal", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Confirm goal deletion" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_savings_goal", { goalId: 1 }));
+  });
+
+  it("hides obsolete goals after deletion while refreshing and after a failed reload", async () => {
+    render(<SavingsGoals />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete goal Fictional rainy day" }));
+    let reject!: (error: Error) => void;
+    mock.mockImplementation(async (command) => {
+      if (command === "list_savings_goals") return new Promise((_, fail) => { reject = fail; });
+      return undefined;
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Confirm goal deletion" }));
+    await screen.findByText("Loading savings goals...");
+    expect(screen.queryByRole("button", { name: "Edit goal Fictional rainy day" })).toBeNull();
+    await act(async () => reject(new Error("Fictional reload failed.")));
+    expect(screen.getByRole("alert").textContent).toContain("Fictional reload failed.");
+    expect(screen.queryByText("No savings goals yet.")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Delete goal Fictional rainy day" })).toBeNull();
+    mock.mockResolvedValue([]);
+    fireEvent.click(screen.getByRole("button", { name: "Retry goals" }));
+    await screen.findByText("No savings goals yet.");
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 });

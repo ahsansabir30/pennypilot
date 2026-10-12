@@ -31,7 +31,7 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     setBusy(true); setError(""); setMessage("");
     try {
       await invoke(command, args);
-      setForm(empty); setDeleting(null); setMessage(success); setRevision((value) => value + 1);
+      setForm(empty); setDeleting(null); setMessage(success); setGoals([]); setLoading(true); setRevision((value) => value + 1);
       setShowForm(false);
       onChanged?.();
     } catch (error) { setError(financeError(error)); }
@@ -56,7 +56,9 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
     <h2 id="savings-title" ref={headingRef} tabIndex={-1}>Your goals</h2>
     <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setForm(empty); setError(""); setShowForm(true); }}>Add savings goal</button>
     </div>
-    {error && !showForm && <div role="alert">{error} <button type="button" onClick={() => setRevision((value) => value + 1)}>Retry goals</button></div>}
+    {error && !showForm && <div role="alert">{error} <button type="button" onClick={() => {
+      setGoals([]); setLoading(true); setError(""); setRevision((value) => value + 1);
+    }}>Retry goals</button></div>}
     {message && <p role="status">{message}</p>}
     {loading && <p role="status">Loading savings goals...</p>}
     {!loading && goals.length === 0 && !error && <p>No savings goals yet.</p>}

@@ -88,6 +88,8 @@ Past months use their full calendar period (including leap days); the current mo
 
 ## Savings goals
 
+After a successful goal mutation, the list hides previous records while reloading. A failed reload shows an explicit error and Retry rather than obsolete editable goals or a false empty state.
+
 **Manage savings goals** stores a name, positive GBP target, explicitly entered non-negative GBP progress, optional validated calendar target date and editable notes. All amounts are integer pence in the encrypted workspace. Progress can be zero or exceed the target; overfunding is retained and displayed. Remaining is `max(target - progress, 0)`. The percentage uses the entered progress divided by the target; only the visual progress bar caps at 100%.
 
 Goal progress is never inferred from imported income, transaction history, net cash flow or an assumed bank balance. Goals do not move or reserve funds. Target dates are user preferences, not estimated completion dates; this release intentionally makes no projected outcomes. The Savings list shows a target date only when one is entered, with notes available separately; calculation explanations and missing-date prose are omitted. Edits and confirmed deletions do not change transactions.
