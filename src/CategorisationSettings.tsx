@@ -158,9 +158,6 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
               <option value="">All statuses</option><option value="enabled">Enabled</option><option value="disabled">Disabled</option>
             </select></label>
           </div>
-          <details className="calculation-details"><summary>How rules work</summary>
-            <p>Higher priority wins. Conflicting ties stay uncategorised. Rules match normalized exact names or whole phrases and the category type; transfers are excluded.</p>
-          </details>
           {categories.length === 0 && <p className="policy-note">Add a category before creating a rule.</p>}
           {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list" aria-label="Merchant rules">
             {visibleRules.map((item) => <li key={item.id}>

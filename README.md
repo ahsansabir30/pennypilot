@@ -41,6 +41,7 @@ Dashboard totals and transaction results are tied to their requested period, fil
 - The transaction ingestion command accepts an optional stable `sourceId`, unique within an account. Re-ingesting the same source returns the existing transaction without altering its category or override; a changed date, kind or amount is rejected explicitly. Without a source ID, creation is a distinct manual record. CSV import is not included yet; its future importer must pass stable source IDs through this same ingestion path.
 - All categorisation runs locally in Rust against the encrypted database. No LLM, external service or additional server is used.
 - Categories and merchant rules use full-width stacked sections with independent searches. Categories filter by accounting type; rules filter by category and enabled status, and search matches merchant patterns or category names. These display filters never change records or restrict the explicit **Apply rules** operation.
+- The settings page omits the **How rules work** disclosure; priority, conflict and matching behaviour remain unchanged and are documented above.
 
 ## Financial data and accounting
 

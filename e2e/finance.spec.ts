@@ -390,8 +390,8 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await page.getByRole("button", { name: "Save rule", exact: true }).click();
   const editRule = page.getByRole("button", { name: "Edit rule fictional merchant", exact: true });
   await expect(editRule).toHaveText("Edit");
-  await page.getByText("How rules work", { exact: true }).click();
-  await expect(page.getByText(/Conflicting ties stay uncategorised/)).toBeVisible();
+  await expect(page.getByText("How rules work", { exact: true })).toHaveCount(0);
+  await expect(page.getByText(/Higher priority wins|Conflicting ties stay uncategorised/)).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Apply rules to automatic transactions" })).toHaveText("Apply rules");
   await editRule.click();
   await expect(page.getByRole("dialog", { name: "Edit rule", exact: true })).toBeVisible();

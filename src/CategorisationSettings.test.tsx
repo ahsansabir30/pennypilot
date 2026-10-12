@@ -53,16 +53,13 @@ describe("categorisation management", () => {
     await waitFor(() => expect(mock).toHaveBeenCalledWith("reclassify_transactions"));
   });
 
-  it("uses short actions without losing names or rule safety explanations", async () => {
+  it("uses short actions without explanatory disclosures or changing rule application", async () => {
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
     const edit = await screen.findByRole("button", { name: "Edit rule north market" });
     expect(edit.textContent).toBe("Edit");
     expect(screen.getByRole("button", { name: "Delete Groceries" }).textContent).toBe("Delete");
-    const summary = screen.getByText("How rules work");
-    expect(summary.closest("details")?.open).toBe(false);
-    fireEvent.click(summary);
-    expect(summary.closest("details")?.open).toBe(true);
-    expect(screen.getByText(/Conflicting ties stay uncategorised/)).toBeTruthy();
+    expect(screen.queryByText("How rules work")).toBeNull();
+    expect(screen.queryByText(/Higher priority wins|Conflicting ties stay uncategorised/)).toBeNull();
     const apply = screen.getByRole("button", { name: "Apply rules to automatic transactions" });
     expect(apply.textContent).toBe("Apply rules");
     fireEvent.click(apply);
