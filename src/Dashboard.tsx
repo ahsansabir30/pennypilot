@@ -19,6 +19,7 @@ import CategorisationSettings from "./CategorisationSettings";
 import Budgets from "./Budgets";
 import SavingsGoals from "./SavingsGoals";
 import Brand from "./Brand";
+import ThemeToggle from "./ThemeToggle";
 import PrivateData from "./PrivateData";
 import FinancialHighlights from "./FinancialHighlights";
 import { useWorkspacePage, workspacePages } from "./navigation";
@@ -270,6 +271,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
             <span className="privacy-dot" />
             Encrypted on this device
           </span>
+          <ThemeToggle />
           <button className="lock-button" disabled={lockBusy} onClick={onLock} type="button">
             {lockBusy ? "Locking..." : "Lock workspace"}
           </button>

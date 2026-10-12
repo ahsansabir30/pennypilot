@@ -152,6 +152,8 @@ npm run tauri dev
 
 Opening the Vite URL in an ordinary browser does not provide access to native workspace storage. It displays a desktop-app requirement instead of calling unavailable Tauri APIs or collecting a passphrase. Use the desktop window opened by `npm run tauri dev` for real workspace operations; browser tests use an explicitly fictional IPC harness.
 
+The **Dark mode** switch in the welcome and workspace headers changes the appearance of every page and record popup. PennyPilot follows the system appearance until you choose light or dark; that choice is stored locally as a non-financial preference and survives reloads and workspace locking. If preference storage is unavailable, the switch still works for the current session and explains that the choice could not be saved. Transaction search fields and budget transaction buttons use the same theme colours, with padded search text and visible keyboard focus.
+
 Run the project verification gate:
 
 ```sh

@@ -5,6 +5,7 @@ import "./App.css";
 import { validateNewPassphrase } from "./security";
 import Dashboard from "./Dashboard";
 import Brand from "./Brand";
+import ThemeToggle from "./ThemeToggle";
 
 type WorkspaceStatus = "new" | "locked" | "unlocked";
 type FormMode = "create" | "unlock" | "recover";
@@ -96,10 +97,13 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <Brand />
-        <span className="privacy-pill">
-          <span className="privacy-dot" />
-          Stored on this device
-        </span>
+        <div className="topbar-actions">
+          <span className="privacy-pill">
+            <span className="privacy-dot" />
+            Stored on this device
+          </span>
+          <ThemeToggle />
+        </div>
       </header>
 
       <section className="welcome-layout" aria-labelledby="welcome-title">

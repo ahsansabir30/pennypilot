@@ -108,7 +108,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
                 : `${formatPence(limit - used)} remaining allowance.`}</p>
             </div>
             <div className="budget-row-actions">
-              <button type="button" aria-label={`View transactions for ${row.categoryName}`} aria-haspopup="dialog" disabled={busy}
+              <button className="budget-transactions-open" type="button" aria-label={`View transactions for ${row.categoryName}`} aria-haspopup="dialog" disabled={busy}
                 onClick={() => setTransactionCategory({ id: row.categoryId, key: requestKey })}>Transactions</button>
               <button className="budget-remove record-delete" type="button" aria-label={`Remove budget for ${row.categoryName}`}
                 title={`Remove budget for ${row.categoryName}`} disabled={busy} onClick={() => setDeleting(row.categoryId)}><span aria-hidden="true">×</span></button>

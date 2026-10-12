@@ -61,6 +61,97 @@ test("ordinary browser access explains the desktop requirement without native IP
   }
 });
 
+test("dark mode themes search, budget buttons and popups at desktop and narrow widths", async ({ page }, testInfo) => {
+  await page.emulateMedia({ colorScheme: "light" });
+  await home(page);
+  const toggle = page.getByRole("switch", { name: "Dark mode" });
+  await expect(toggle).not.toBeChecked();
+  await toggle.focus();
+  await page.keyboard.press("Space");
+  await expect(toggle).toBeChecked();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(page.locator('meta[name="theme-color"]')).toHaveAttribute("content", "#111815");
+
+  const search = page.getByRole("textbox", { name: "Search transactions" });
+  await expect(search.locator("..")).toHaveCSS("background-color", "rgb(24, 33, 29)");
+  await expect(search).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(search).toHaveCSS("color", "rgb(237, 243, 238)");
+  await expect(search).toHaveCSS("padding-left", "10px");
+  await expect(search).toHaveCSS("padding-right", "10px");
+  await expect(search.locator("..")).toHaveCSS("padding-left", "12px");
+  await search.fill("Fictional Merchant 16");
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 16", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Delete Fictional Merchant 15", exact: true })).toHaveCount(0);
+  await search.fill("");
+
+  await page.reload();
+  await expect(toggle).toBeChecked();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await navigate(page, "Budgets");
+  await saveFoodBudget(page);
+  const transactions = page.getByRole("button", { name: "View transactions for Fictional Food", exact: true });
+  await expect(transactions).toHaveCSS("background-color", "rgb(47, 122, 82)");
+  await expect(transactions).toHaveCSS("color", "rgb(255, 255, 255)");
+  await transactions.click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveCSS("background-color", "rgb(24, 33, 29)");
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+
+  for (const width of [320, 768, 1180]) {
+    await page.setViewportSize({ width, height: 850 });
+    for (const name of ["Overview", "Transactions", "Budgets", "Savings", "Categories & Rules", "Export & Backup"]) {
+      await navigate(page, name);
+      await expect(toggle).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await navigate(page, "Transactions");
+    await page.screenshot({ path: testInfo.outputPath(`dark-transactions-${width}.png`), fullPage: true });
+  }
+  await page.getByRole("button", { name: "Lock workspace", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Unlock your workspace", exact: true })).toBeVisible();
+  await expect(toggle).toBeChecked();
+  await expect(toggle).toHaveCSS("width", "44px");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await toggle.click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(toggle).not.toBeChecked();
+});
+
+test("system appearance changes apply until the user selects a theme", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await home(page);
+  const toggle = page.getByRole("switch", { name: "Dark mode" });
+  await expect(toggle).toBeChecked();
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(toggle).not.toBeChecked();
+  await toggle.click();
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.emulateMedia({ colorScheme: "light" });
+  await expect(toggle).toBeChecked();
+});
+
+test("dark modal selects retain visible chevrons and native forced-colors controls", async ({ page }) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await home(page);
+  for (const editor of [
+    { button: "Add transaction", field: "Category" },
+    { button: "Edit category for Fictional Merchant 16", field: "Category for Fictional Merchant 16" },
+  ]) {
+    await page.getByRole("button", { name: editor.button, exact: true }).click();
+    const select = page.getByRole("dialog").getByRole("combobox", { name: editor.field, exact: true });
+    await expect(select).toHaveCSS("background-image", /select-chevron-dark.*\.svg/);
+    await page.emulateMedia({ forcedColors: "active" });
+    await expect(select).toHaveCSS("background-image", "none");
+    await expect(select).toHaveCSS("appearance", "auto");
+    await page.emulateMedia({ forcedColors: "none" });
+    await expect(select).toHaveCSS("background-image", /select-chevron-dark.*\.svg/);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("narrow transactions keep heading actions compact and filters in balanced rows", async ({ page }, testInfo) => {
   for (const width of [360, 620, 768]) {
     await page.setViewportSize({ width, height: 900 });

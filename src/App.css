@@ -1,7 +1,93 @@
 :root {
+  color-scheme: light;
+  --page: #f6f7f3;
+  --page-glow: rgba(200, 223, 207, 0.28);
+  --surface: #fff;
+  --surface-raised: rgba(255, 255, 255, 0.92);
+  --surface-glass: rgba(255, 255, 255, 0.54);
+  --surface-muted: #f7f9f5;
+  --surface-hover: #f0f4ef;
+  --surface-sunken: #f0f2ee;
+  --tint: #edf3ed;
+  --tint-strong: #dce8dd;
+  --track: #e8eee7;
+  --border: #e1e7df;
+  --border-strong: #cbd7cb;
+  --text-strong: #1d2b27;
+  --text: #304438;
+  --text-muted: #5a6a60;
+  --text-subtle: #78847d;
+  --accent: #285c42;
+  --accent-hover: #1d4632;
+  --accent-text: #285c42;
+  --accent-soft-text: #557f63;
+  --on-accent: #fff;
+  --danger: #943832;
+  --danger-text: #8c3a31;
+  --danger-surface: #fbf0ec;
+  --danger-hover: #f5dfda;
+  --danger-border: #eccbc6;
+  --chart-income: #4f805d;
+  --chart-expense: #b76b49;
+  --focus: #5f9474;
+  --focus-ring: rgba(108, 155, 120, 0.13);
+  --olive-surface: #eff3e7;
+  --olive-text: #4d602c;
+  --info-surface: #edf1f5;
+  --info-text: #405a74;
+  --shadow-strong: rgba(44, 69, 53, 0.08);
+  --shadow-soft: rgba(44, 69, 53, 0.035);
+  --shadow-modal: rgb(15 35 25 / 24%);
+  --backdrop: rgb(15 35 25 / 45%);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #111815;
+  --page-glow: rgba(63, 138, 98, 0.14);
+  --surface: #18211d;
+  --surface-raised: rgba(24, 33, 29, 0.94);
+  --surface-glass: rgba(24, 33, 29, 0.6);
+  --surface-muted: #1d2722;
+  --surface-hover: #24302a;
+  --surface-sunken: #222c27;
+  --tint: #203229;
+  --tint-strong: #2a4236;
+  --track: #2b3731;
+  --border: #2c3832;
+  --border-strong: #42534a;
+  --text-strong: #edf3ee;
+  --text: #d3ddd6;
+  --text-muted: #a7b5ac;
+  --text-subtle: #8a988f;
+  --accent: #2f7a52;
+  --accent-hover: #337f56;
+  --accent-text: #8fd0a8;
+  --accent-soft-text: #7fbf98;
+  --on-accent: #fff;
+  --danger: #d77a6c;
+  --danger-text: #f2a99c;
+  --danger-surface: #2e1d1a;
+  --danger-hover: #452622;
+  --danger-border: #6a3b33;
+  --chart-income: #6fae84;
+  --chart-expense: #d98d6a;
+  --focus: #7fc39a;
+  --focus-ring: rgba(127, 195, 154, 0.22);
+  --olive-surface: #262c1c;
+  --olive-text: #c6d69c;
+  --info-surface: #1c2631;
+  --info-text: #a7c3e0;
+  --shadow-strong: rgba(0, 0, 0, 0.35);
+  --shadow-soft: rgba(0, 0, 0, 0.25);
+  --shadow-modal: rgb(0 0 0 / 50%);
+  --backdrop: rgb(0 0 0 / 62%);
+}
+
+:root {
   font-family: "Avenir Next", Avenir, "Segoe UI", sans-serif;
-  color: #1d2b27;
-  background: #f6f7f3;
+  color: var(--text-strong);
+  background: var(--page);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,8 +104,8 @@ body {
   min-height: 100vh;
   margin: 0;
   background:
-    radial-gradient(ellipse at 72% 34%, rgba(200, 223, 207, 0.28), transparent 38%),
-    #f6f7f3;
+    radial-gradient(ellipse at 72% 34%, var(--page-glow), transparent 38%),
+    var(--page);
 }
 
 button,
@@ -38,24 +124,25 @@ button:disabled {
 :root body button:enabled:hover,
 :root body a.text-button:hover,
 :root body a.lock-button:hover {
-  background-color: #dce8dd;
-  color: #203b2b;
+  background-color: var(--tint-strong);
+  color: var(--text-strong);
 }
 
 :root body button.primary-button:enabled:hover,
 :root body button.add-transaction-button:enabled:hover,
+:root body button.budget-transactions-open:enabled:hover,
 :root body .management-heading button:enabled:hover,
 :root body .modal-actions button[type="submit"]:enabled:hover {
-  background-color: #1d4632;
-  color: #fff;
+  background-color: var(--accent-hover);
+  color: var(--on-accent);
 }
 
 :root body button.destructive-action:enabled:hover,
 :root body button.delete-button:enabled:hover,
 :root body button.confirm-delete:enabled:hover,
 :root body button.budget-remove:enabled:hover {
-  background-color: #f5dfda;
-  color: #84392f;
+  background-color: var(--danger-hover);
+  color: var(--danger-text);
 }
 
 button:focus-visible,
@@ -64,7 +151,7 @@ select:focus-visible,
 textarea:focus-visible,
 a:focus-visible,
 summary:focus-visible {
-  outline: 3px solid #6b9c7d;
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -85,11 +172,13 @@ summary:focus-visible {
 
 .topbar {
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .brand {
   gap: 10px;
-  color: #1b3028;
+  color: var(--text-strong);
   font-size: 18px;
   font-weight: 800;
   letter-spacing: -0.6px;
@@ -105,19 +194,48 @@ summary:focus-visible {
 .privacy-pill {
   gap: 8px;
   padding: 9px 13px;
-  border: 1px solid #e6e9e2;
+  border: 1px solid var(--border);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.52);
-  color: #64716b;
+  background: var(--surface-glass);
+  color: var(--text-muted);
   font-size: 12px;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-left: auto;
+}
+
+.theme-storage-error {
+  max-width: 240px;
+  color: var(--danger-text);
+  font-size: 12px;
+}
+
+.theme-toggle {
+  display: inline-grid;
+  place-items: center;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
 }
 
 .privacy-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: #69a17a;
-  box-shadow: 0 0 0 3px #e2efe3;
+  background: var(--accent);
+  box-shadow: 0 0 0 3px var(--tint);
 }
 
 .welcome-layout {
@@ -137,7 +255,7 @@ summary:focus-visible {
 
 .eyebrow {
   display: inline-block;
-  color: #5f8d6c;
+  color: var(--accent-soft-text);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1.7px;
@@ -157,20 +275,20 @@ h2 {
 
 h1 {
   margin: 18px 0 20px;
-  color: #1c3128;
+  color: var(--text-strong);
   font-size: clamp(40px, 5.1vw, 64px);
   font-weight: 700;
   line-height: 1.09;
 }
 
 h1 span {
-  color: #60896c;
+  color: var(--accent-soft-text);
 }
 
 .welcome-description {
   max-width: 440px;
   margin-bottom: 34px;
-  color: #68756e;
+  color: var(--text-muted);
   font-size: 16px;
   line-height: 1.8;
 }
@@ -181,9 +299,9 @@ h1 span {
   align-items: flex-start;
   gap: 14px;
   padding: 17px 19px;
-  border: 1px solid #e3e9df;
+  border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--surface-glass);
 }
 
 .privacy-icon {
@@ -193,8 +311,8 @@ h1 span {
   flex: 0 0 34px;
   place-items: center;
   border-radius: 11px;
-  background: #e9f1e8;
-  color: #477a56;
+  background: var(--tint);
+  color: var(--accent-text);
   font-size: 18px;
 }
 
@@ -202,13 +320,13 @@ h1 span {
   display: grid;
   gap: 4px;
   margin: 0;
-  color: #6e7a73;
+  color: var(--text-muted);
   font-size: 12px;
   line-height: 1.55;
 }
 
 .privacy-note strong {
-  color: #334d3e;
+  color: var(--text);
   font-size: 13px;
 }
 
@@ -217,12 +335,12 @@ h1 span {
   max-width: 430px;
   justify-self: end;
   padding: clamp(28px, 4vw, 42px);
-  border: 1px solid #e8ebe5;
+  border: 1px solid var(--border);
   border-radius: 20px;
-  background: rgba(255, 255, 255, 0.94);
+  background: var(--surface-raised);
   box-shadow:
-    0 24px 60px rgba(44, 69, 53, 0.08),
-    0 3px 12px rgba(44, 69, 53, 0.035);
+    0 24px 60px var(--shadow-strong),
+    0 3px 12px var(--shadow-soft);
 }
 
 .card-symbol {
@@ -232,14 +350,14 @@ h1 span {
   margin-bottom: 24px;
   place-items: center;
   border-radius: 14px;
-  background: #edf4ed;
-  color: #3c7450;
+  background: var(--tint);
+  color: var(--accent-text);
   font-size: 21px;
 }
 
 .workspace-card h2 {
   margin: 8px 0 10px;
-  color: #23372d;
+  color: var(--text-strong);
   font-size: 23px;
   font-weight: 700;
   letter-spacing: -0.8px;
@@ -248,7 +366,7 @@ h1 span {
 .card-description,
 .unlocked-state > p {
   margin-bottom: 25px;
-  color: #7b857f;
+  color: var(--text-subtle);
   font-size: 13px;
   line-height: 1.65;
 }
@@ -260,7 +378,7 @@ h1 span {
 
 .passphrase-form label {
   margin-bottom: 8px;
-  color: #435149;
+  color: var(--text);
   font-size: 12px;
   font-weight: 600;
 }
@@ -269,23 +387,23 @@ h1 span {
   width: 100%;
   height: 46px;
   padding: 0 13px;
-  border: 1px solid #dfe5de;
+  border: 1px solid var(--border);
   border-radius: 9px;
-  background: #fcfdfb;
-  color: #26392e;
+  background: var(--surface-muted);
+  color: var(--text-strong);
   font-size: 14px;
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
 .passphrase-form input:focus {
-  border-color: #6c9b78;
-  box-shadow: 0 0 0 3px rgba(108, 155, 120, 0.13);
+  border-color: var(--focus);
+  box-shadow: 0 0 0 3px var(--focus-ring);
   outline: none;
 }
 
 .field-hint {
   margin: 8px 0 20px;
-  color: #929b95;
+  color: var(--text-subtle);
   font-size: 11px;
 }
 
@@ -299,8 +417,8 @@ h1 span {
   margin-top: 20px;
   border: 0;
   border-radius: 9px;
-  background: #285c42;
-  color: #fff;
+  background: var(--accent);
+  color: var(--on-accent);
   cursor: pointer;
   font-size: 13px;
   font-weight: 600;
@@ -309,7 +427,7 @@ h1 span {
 
 .primary-button:hover:not(:disabled) {
   transform: translateY(-1px);
-  background: #214c37;
+  background: var(--accent-hover);
 }
 
 .primary-button:disabled {
@@ -329,7 +447,7 @@ h1 span {
   padding: 4px;
   border: 0;
   background: transparent;
-  color: #668273;
+  color: var(--accent-soft-text);
   cursor: pointer;
   font-size: 11px;
   text-align: center;
@@ -338,7 +456,7 @@ h1 span {
 }
 
 .text-button:hover {
-  color: #315941;
+  color: var(--accent-text);
 }
 
 .card-footnote {
@@ -347,13 +465,13 @@ h1 span {
   gap: 8px;
   margin-top: 25px;
   padding-top: 18px;
-  border-top: 1px solid #edf0eb;
-  color: #929b95;
+  border-top: 1px solid var(--border);
+  color: var(--text-subtle);
   font-size: 10px;
 }
 
 .card-footnote span {
-  color: #75a783;
+  color: var(--accent-soft-text);
   font-size: 8px;
 }
 
@@ -364,7 +482,7 @@ h1 span {
 }
 
 .form-message.error {
-  color: #a23e37;
+  color: var(--danger-text);
 }
 
 .unlocked-state .primary-button {
@@ -377,7 +495,7 @@ h1 span {
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: #75817a;
+  color: var(--text-subtle);
   font-size: 13px;
   text-align: center;
 }
@@ -387,8 +505,8 @@ h1 span {
   width: 17px;
   height: 17px;
   margin-right: 10px;
-  border: 2px solid #dce7dc;
-  border-top-color: #477a56;
+  border: 2px solid var(--track);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 750ms linear infinite;
   vertical-align: middle;
@@ -396,7 +514,7 @@ h1 span {
 
 .page-footer {
   justify-content: space-between;
-  color: #99a19b;
+  color: var(--text-subtle);
   font-size: 10px;
 }
 
@@ -426,6 +544,10 @@ h1 span {
 @media (max-width: 520px) {
   .app-shell {
     padding: 18px 20px;
+  }
+
+  .topbar-actions {
+    gap: 8px;
   }
 
   .privacy-pill {
