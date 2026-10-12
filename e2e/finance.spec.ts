@@ -93,6 +93,8 @@ for (const editor of popupEditors) {
 test("transaction category popup only persists deliberate saves and retains failed changes", async ({ page }) => {
   await home(page);
   const trigger = page.getByRole("button", { name: "Edit category for Fictional Merchant 16", exact: true });
+  await expect(trigger).toHaveText("Fictional Food");
+  await expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
   const dialog = page.getByRole("dialog", { name: "Edit transaction category" });
   await trigger.click();
   await dialog.getByLabel("Category for Fictional Merchant 16", { exact: true }).selectOption("");
@@ -108,6 +110,75 @@ test("transaction category popup only persists deliberate saves and retains fail
   await dialog.getByRole("button", { name: "Save category choice" }).click();
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toContainText("Uncategorised");
+});
+
+test("planning and settings layouts keep concise actions and expandable safeguards usable", async ({ page }, testInfo) => {
+  await home(page);
+  await navigate(page, "Budgets");
+  await expect(page.getByRole("heading", { name: "Monthly limits", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add budget", exact: true }).click();
+  await page.getByRole("combobox", { name: "Budget category", exact: true }).selectOption("1");
+  await page.getByLabel("Monthly limit (GBP)", { exact: true }).fill("100");
+  await page.getByRole("button", { name: "Save monthly budget" }).click();
+  await expect(page.getByRole("button", { name: "Edit budget for Fictional Food" })).toBeVisible();
+  await page.getByText("Period details", { exact: true }).click();
+  await expect(page.getByText(/Expenses less refunds; transfers and income excluded/)).toBeVisible();
+
+  async function checkLayout(name: string) {
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+    for (const button of await page.locator(".management-heading button, .management-row-actions button, .budget-row-actions button, .rules-apply button").all()) {
+      const bounds = await button.boundingBox();
+      expect(bounds).not.toBeNull();
+      expect(bounds!.height).toBeGreaterThanOrEqual(44);
+      expect(bounds!.x).toBeGreaterThanOrEqual(0);
+      expect(bounds!.x + bounds!.width).toBeLessThanOrEqual(page.viewportSize()!.width);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
+  }
+  await checkLayout("budgets");
+  await navigate(page, "Savings");
+  await expect(page.getByRole("heading", { name: "Your goals", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Add savings goal", exact: true }).click();
+  await page.getByLabel("Goal name").fill("Fictional rainy day");
+  await page.getByLabel("Target (GBP)", { exact: true }).fill("100");
+  await page.getByRole("button", { name: "Save savings goal" }).click();
+  const editGoal = page.getByRole("button", { name: "Edit goal Fictional rainy day" });
+  await expect(editGoal).toHaveText("Edit");
+  await page.getByText("Calculation details", { exact: true }).click();
+  await expect(page.getByText(/not a bank balance/)).toBeVisible();
+  await editGoal.click();
+  await expect(page.getByRole("dialog", { name: "Edit savings goal" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(editGoal).toBeFocused();
+  await checkLayout("savings");
+
+  await navigate(page, "Categories & Rules");
+  const categoriesHeading = await page.getByRole("heading", { name: "Categories", exact: true }).boundingBox();
+  const rulesHeading = await page.getByRole("heading", { name: "Merchant rules", exact: true }).boundingBox();
+  expect(categoriesHeading).not.toBeNull();
+  expect(rulesHeading).not.toBeNull();
+  if (testInfo.project.name === "desktop") {
+    expect(Math.abs(categoriesHeading!.y - rulesHeading!.y)).toBeLessThanOrEqual(1);
+    expect(rulesHeading!.x).toBeGreaterThan(categoriesHeading!.x);
+  } else {
+    expect(rulesHeading!.y).toBeGreaterThan(categoriesHeading!.y + categoriesHeading!.height);
+  }
+  await page.getByRole("button", { name: "Add rule", exact: true }).click();
+  await page.getByLabel("Merchant pattern").fill("Fictional Merchant");
+  await page.getByRole("combobox", { name: "Rule category", exact: true }).selectOption("1");
+  await page.getByRole("button", { name: "Save rule", exact: true }).click();
+  const editRule = page.getByRole("button", { name: "Edit rule fictional merchant", exact: true });
+  await expect(editRule).toHaveText("Edit");
+  await page.getByText("How rules work", { exact: true }).click();
+  await expect(page.getByText(/Conflicting ties stay uncategorised/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Apply rules to automatic transactions" })).toHaveText("Apply rules");
+  await editRule.click();
+  await expect(page.getByRole("dialog", { name: "Edit rule", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  for (const list of await page.getByRole("list", { name: /^(Categories|Merchant rules)$/ }).all()) {
+    expect(await list.evaluate((element) => getComputedStyle(element).overflowY)).toBe("visible");
+  }
+  await checkLayout("categories");
 });
 
 test("transaction filters align and the category editor separates its label, field and actions", async ({ page }, testInfo) => {
@@ -504,7 +575,7 @@ test("category and merchant rule create, edit, cancel, enabled, reclassify and d
   await panel.getByRole("button", { name: "Edit rule fictional merchant", exact: true }).click();
   await panel.getByRole("button", { name: "Cancel rule edit", exact: true }).click();
   await expect(panel.getByRole("dialog")).toHaveCount(0);
-  await panel.getByRole("button", { name: "Reclassify automatic transactions", exact: true }).click();
+  await panel.getByRole("button", { name: "Apply rules to automatic transactions", exact: true }).click();
   await expect(panel.getByRole("status")).toContainText("Manual choices preserved.");
   await panel.getByRole("button", { name: "Delete rule fictional merchant", exact: true }).click();
   await panel.getByRole("button", { name: "Cancel deletion", exact: true }).click();
@@ -610,9 +681,9 @@ test("failed requests have real retries and mutations do not falsely report succ
   await navigate(page, "Categories & Rules");
   const panel = page.getByRole("region", { name: "Categories and rules" });
   await expect(panel.getByRole("alert")).toContainText("Rules could not be loaded.");
-  await expect(panel.getByRole("button", { name: "Reclassify automatic transactions", exact: true })).toBeDisabled();
+  await expect(panel.getByRole("button", { name: "Apply rules to automatic transactions", exact: true })).toBeDisabled();
   await panel.getByRole("button", { name: "Retry rules", exact: true }).click();
-  await expect(panel.getByRole("button", { name: "Reclassify automatic transactions", exact: true })).toBeEnabled();
+  await expect(panel.getByRole("button", { name: "Apply rules to automatic transactions", exact: true })).toBeEnabled();
   await page.evaluate(() => window.__pennyTest.failNext("delete_category", "Category is in use."));
   await panel.getByRole("button", { name: "Delete Fictional Food", exact: true }).click();
   await panel.getByRole("button", { name: "Confirm deletion", exact: true }).click();

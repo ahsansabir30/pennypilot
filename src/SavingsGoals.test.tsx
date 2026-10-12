@@ -13,12 +13,25 @@ describe("savings goals", () => {
 
   it("shows zero progress without treating transactions as balance evidence", async () => {
     render(<SavingsGoals />);
-    expect(await screen.findByText("£0.00 entered progress / £100.00 target")).toBeTruthy();
+    expect(await screen.findByText("£0.00 / £100.00 target")).toBeTruthy();
     expect(screen.getByText("0.0% · £100.00 remaining")).toBeTruthy();
     expect(screen.getByRole("progressbar")).toHaveProperty("value", 0);
     expect(screen.getByText(/not a bank balance/)).toBeTruthy();
     expect(screen.getByText(/completion predicted/)).toBeTruthy();
     expect(mock).not.toHaveBeenCalledWith("list_finance_data", expect.anything());
+  });
+
+  it("keeps concise actions accessible and financial caveats expandable", async () => {
+    render(<SavingsGoals />);
+    const edit = await screen.findByRole("button", { name: "Edit goal Fictional rainy day" });
+    expect(edit.textContent).toBe("Edit");
+    expect(screen.getByRole("button", { name: "Delete goal Fictional rainy day" }).textContent).toBe("Delete");
+    const summary = screen.getByText("Calculation details");
+    expect(summary.closest("details")?.open).toBe(false);
+    fireEvent.click(summary);
+    expect(summary.closest("details")?.open).toBe(true);
+    expect(screen.getByText(/not a bank balance/)).toBeTruthy();
+    expect(screen.getByText("Manual progress. No money is moved.")).toBeTruthy();
   });
 
   it("retains overfunding and labels dates as preferences, not forecasts", async () => {

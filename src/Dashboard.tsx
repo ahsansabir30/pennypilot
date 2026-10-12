@@ -763,10 +763,11 @@ function TransactionRow({
           <button type="button"
             disabled={busy}
             aria-label={`Edit category for ${displayName}`}
+            aria-haspopup="dialog"
             className="category-select"
             onClick={onEditCategory}
           >
-            {transaction.categoryName ?? "Uncategorised"} <span aria-hidden="true">⌄</span>
+            {transaction.categoryName ?? "Uncategorised"}
           </button>
           {transaction.categoryExplanation.startsWith("Conflict:") && <div className="category-control-meta">
             <details className="category-details">

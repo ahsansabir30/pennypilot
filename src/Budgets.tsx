@@ -60,12 +60,14 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
     }
   }
 
-  return <section id="budgets-panel" className="panel finance-management" aria-labelledby="budgets-title">
-    <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly category budgets</h2>
-    <p className="policy-note">Expenses less refunds; transfers excluded. Recorded history may be incomplete.</p>
+  return <section id="budgets-panel" className="panel finance-management" aria-label="Monthly category budgets">
+    <div className="management-heading">
+    <h2 id="budgets-title" ref={headingRef} tabIndex={-1}>Monthly limits</h2>
     <button className="add-transaction-button" type="button" disabled={busy || eligible.length === 0} onClick={() => {
       setForm({ categoryId: "", limit: "" }); setEditing(false); setError(""); setShowForm(true);
     }}>Add budget</button>
+    </div>
+    <p className="policy-note">Recorded spending, not complete bank history.</p>
     {displayedError && !showForm && <div role="alert">{displayedError} <button type="button" onClick={() => { setError(""); setRevision((value) => value + 1); }}>Retry budgets</button></div>}
     {message && <p role="status">{message}</p>}
     {!current && !displayedError && <p role="status">Loading budgets...</p>}
@@ -76,7 +78,7 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
         : "future month; no elapsed period"}.
         {current.previousEnd && ` Comparison: ${current.previousMonth}-01 through ${current.previousEnd}.`}
         {current.previousMonth === null && " Previous period is outside the supported date range; no comparison available."}
-        {" "}Missing records are not treated as evidence of no spending. No projections.</p></details>
+        {" "}Expenses less refunds; transfers and income excluded. Missing records are not treated as evidence of no spending. No projections. Limits apply only to this month.</p></details>
       <label className="management-preference">Comparison period
         <select aria-label="Comparison period" disabled={busy} value={current.comparisonMode}
           onChange={(event) => void mutate("save_budget_preferences", { comparisonMode: event.currentTarget.value }, "Comparison preference saved.")}>

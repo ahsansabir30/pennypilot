@@ -15,6 +15,22 @@ describe("categorisation management", () => {
   });
   afterEach(cleanup);
 
+  it("uses short actions without losing names or rule safety explanations", async () => {
+    render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
+    const edit = await screen.findByRole("button", { name: "Edit rule north market" });
+    expect(edit.textContent).toBe("Edit");
+    expect(screen.getByRole("button", { name: "Delete Groceries" }).textContent).toBe("Delete");
+    const summary = screen.getByText("How rules work");
+    expect(summary.closest("details")?.open).toBe(false);
+    fireEvent.click(summary);
+    expect(summary.closest("details")?.open).toBe(true);
+    expect(screen.getByText(/Conflicting ties stay uncategorised/)).toBeTruthy();
+    const apply = screen.getByRole("button", { name: "Apply rules to automatic transactions" });
+    expect(apply.textContent).toBe("Apply rules");
+    fireEvent.click(apply);
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("reclassify_transactions"));
+  });
+
   it("edits category names and colours without changing the accounting type", async () => {
     const changed = vi.fn();
     render(<CategorisationSettings categories={categories} onChanged={changed} />);

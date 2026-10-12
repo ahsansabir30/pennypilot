@@ -16,6 +16,17 @@ describe("monthly budgets", () => {
   beforeEach(() => { mock.mockReset(); mock.mockImplementation(async (command) => command === "list_budgets" ? data : undefined); });
   afterEach(cleanup);
 
+  it("keeps accounting and history caveats available in period details", async () => {
+    render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
+    const summary = await screen.findByText("Period details");
+    expect(summary.closest("details")?.open).toBe(false);
+    fireEvent.click(summary);
+    expect(summary.closest("details")?.open).toBe(true);
+    expect(screen.getByText(/Expenses less refunds; transfers and income excluded/)).toBeTruthy();
+    expect(screen.getByText(/Limits apply only to this month/)).toBeTruthy();
+    expect(screen.getByText("Recorded spending, not complete bank history.")).toBeTruthy();
+  });
+
   it("retains exact large usage, allowance and prior-period differences", async () => {
     mock.mockResolvedValue({ ...data, rows: [{ ...data.rows[0], usedPence: "9007199254740993", previousUsedPence: "9007199254740992", previousRecordCount: 1 }] });
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);

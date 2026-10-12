@@ -61,7 +61,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
         ...rule, priority: Number(rule.priority), categoryId: Number(rule.categoryId),
       } });
       setRule(newRule);
-    }, "Rule saved. Use Reclassify automatic transactions to apply it to existing records.")) setEditor(null);
+    }, "Rule saved. Apply rules to update existing automatic transactions.")) setEditor(null);
   }
 
   async function remove() {
@@ -80,25 +80,23 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
 
   return (
     <section id="categorisation-panel" className="panel categorisation-panel" aria-labelledby="categorisation-title">
-      <h2 id="categorisation-title">Categories and rules</h2>
-      <p className="policy-note">Manual choices are protected.</p>
-      <details className="calculation-details"><summary>How rules work</summary>
-        <p>Higher priority wins. Conflicting ties stay uncategorised.</p>
-      </details>
+      <h2 id="categorisation-title" className="visually-hidden">Categories and rules</h2>
       {error && !editor && <p role="alert" className="form-message error">{error}</p>}
       {rulesError && <div role="alert" className="form-message error">{rulesError}
         <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
       <div className="categorisation-grid">
         <div>
+          <div className="management-heading">
           <h3>Categories</h3>
           <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setCategory(newCategory); setError(""); setEditor("category"); }}>Add category</button>
-          <ul className="settings-list">
+          </div>
+          <ul className="settings-list" aria-label="Categories">
             {categories.map((item) => <li key={item.id}>
-              <span><i style={{ background: item.color }} />{item.name} ({item.categoryType})</span>
-              <div>
-                <button type="button" disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit {item.name}</button>
-                <button type="button" disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}>Delete {item.name}</button>
+              <span><i className="budget-category-dot" aria-hidden="true" style={{ background: item.color }} />{item.name}<small className="category-type">{item.categoryType}</small></span>
+              <div className="management-row-actions">
+                <button type="button" aria-label={`Edit ${item.name}`} disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit</button>
+                <button type="button" className="destructive-action" aria-label={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}>Delete</button>
               </div>
             </li>)}
           </ul>
@@ -124,16 +122,23 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           </form></Modal>}
         </div>
         <div>
+          <div className="management-heading">
           <h3>Merchant rules</h3>
           <button className="add-transaction-button" type="button" disabled={busy || categories.length === 0} onClick={() => { setRule(newRule); setError(""); setEditor("rule"); }}>Add rule</button>
-          {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list">
+          </div>
+          <p className="policy-note">Match merchants automatically.</p>
+          <details className="calculation-details"><summary>How rules work</summary>
+            <p>Higher priority wins. Conflicting ties stay uncategorised. Rules match normalized exact names or whole phrases and the category type; transfers are excluded.</p>
+          </details>
+          {categories.length === 0 && <p className="policy-note">Add a category before creating a rule.</p>}
+          {loading ? <p role="status">Loading rules...</p> : rulesError ? <p>Rules unavailable.</p> : <ul className="settings-list" aria-label="Merchant rules">
             {rules.map((item) => <li key={item.id}>
               <span>{item.pattern} → {categories.find((category) => category.id === item.categoryId)?.name ?? "Unknown category"}
                 <small>{item.matchType === "contains" ? "Whole phrase" : "Exact name"} · Priority {item.priority} · {item.enabled ? "Enabled" : "Disabled"}</small>
               </span>
-              <div>
-                <button disabled={busy} type="button" onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setError(""); setEditor("rule"); }}>Edit rule {item.pattern}</button>
-                <button disabled={busy} type="button" onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete rule {item.pattern}</button>
+              <div className="management-row-actions">
+                <button disabled={busy} type="button" aria-label={`Edit rule ${item.pattern}`} onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setError(""); setEditor("rule"); }}>Edit</button>
+                <button disabled={busy} type="button" className="destructive-action" aria-label={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete</button>
               </div>
             </li>)}
             {rules.length === 0 && <li>No rules yet.</li>}
@@ -168,13 +173,16 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
         </div>
       </div>
       {pendingDelete && <div className="policy-note" role="group" aria-label="Confirm settings deletion">
-        Delete this {pendingDelete.type}? Categories used by transactions or rules cannot be deleted.
+        Delete this {pendingDelete.type}? Categories in use cannot be deleted.
         <button disabled={busy} type="button" onClick={() => void remove()}>Confirm deletion</button>
         <button disabled={busy} type="button" onClick={() => setPendingDelete(null)}>Cancel deletion</button>
       </div>}
-      <button disabled={busy || loading || Boolean(rulesError)} type="button" onClick={() => void perform(async () => {
+      <div className="rules-apply">
+      <p className="policy-note">Apply rule changes to existing automatic transactions. Manual choices stay unchanged.</p>
+      <button aria-label="Apply rules to automatic transactions" disabled={busy || loading || Boolean(rulesError)} type="button" onClick={() => void perform(async () => {
         return await invoke<number>("reclassify_transactions");
-      }, (count) => `${count} automatic transaction${count === 1 ? "" : "s"} reclassified. Manual choices preserved.`)}>Reclassify automatic transactions</button>
+      }, (count) => `${count} automatic transaction${count === 1 ? "" : "s"} reclassified. Manual choices preserved.`)}>Apply rules</button>
+      </div>
     </section>
   );
 }
