@@ -133,6 +133,24 @@
 
 .settings-list .budget-category-dot { display: inline-block; margin-right: 8px; }
 .category-type { text-transform: capitalize; }
+.category-colour-field { grid-column: 1 / -1; display: grid; gap: 10px; }
+.category-colour-field > span { color: var(--finance-muted); font-size: 12px; font-weight: 600; }
+.category-colour-palette { display: flex; flex-wrap: wrap; gap: 6px; }
+.finance-shell .category-colour-option { display: grid; place-items: center; width: 44px; height: 44px; margin: 0; padding: 4px; background: transparent; border: 2px solid transparent; border-radius: 50%; }
+.finance-shell .category-colour-option[aria-pressed="true"] { border-color: #285c42; }
+.category-colour-swatch { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: #fff; font-size: 18px; }
+.category-colour-custom { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.category-colour-custom label { margin: 0; }
+.transaction-form .category-colour-custom input[type="color"] { box-sizing: border-box; width: 48px; height: 44px; min-height: 44px; padding: 5px; border: 1px solid var(--finance-border); border-radius: 8px; background: #fff; cursor: pointer; }
+.category-colour-custom input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.category-colour-custom input[type="color"]::-webkit-color-swatch { border: 0; border-radius: 4px; }
+.category-colour-custom input[type="color"]::-moz-color-swatch { border: 0; border-radius: 4px; }
+.category-colour-custom input[type="color"]:disabled { cursor: not-allowed; }
+.category-colour-value { font-size: 12px; font-variant-numeric: tabular-nums; color: var(--finance-muted); }
+@media (forced-colors: active) {
+  .category-colour-swatch { forced-color-adjust: none; }
+  .finance-shell .category-colour-option[aria-pressed="true"] { border-color: Highlight; }
+}
 .management-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .management-heading h2, .management-heading h3 { margin: 0; font-size: 18px; letter-spacing: -.4px; }
 .finance-shell .management-heading button { margin: 0 0 0 auto; flex-shrink: 0; background: #285c42; color: #fff; font-weight: 600; }

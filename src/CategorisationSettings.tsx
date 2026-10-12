@@ -7,6 +7,12 @@ import Modal from "./Modal";
 type Props = { categories: Category[]; onChanged: () => void };
 const newCategory = { id: null as number | null, name: "", categoryType: "expense", color: "#66896D" };
 const newRule = { id: null as number | null, pattern: "", matchType: "contains", categoryId: "", priority: "20", enabled: true };
+const categoryColours = [
+  { name: "Sage", value: "#66896D" }, { name: "Teal", value: "#458580" },
+  { name: "Blue", value: "#587CA6" }, { name: "Lavender", value: "#8B78A6" },
+  { name: "Rose", value: "#B77486" }, { name: "Terracotta", value: "#B97958" },
+  { name: "Gold", value: "#B59646" }, { name: "Slate", value: "#76838F" },
+];
 
 export default function CategorisationSettings({ categories, onChanged }: Props) {
   const [rules, setRules] = useState<CategoryRule[]>([]);
@@ -146,8 +152,25 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
                 onChange={(event) => setCategory({ ...category, categoryType: event.currentTarget.value })}>
                 <option value="expense">Expense</option><option value="income">Income</option>
               </select></label>
-              <label>Category colour<input type="color" value={category.color}
-                onChange={(event) => setCategory({ ...category, color: event.currentTarget.value })} /></label>
+              <div className="category-colour-field">
+                <span>Category colour</span>
+                <div className="category-colour-palette" role="group" aria-label="Preset colours">
+                  {categoryColours.map((colour) => <button key={colour.value} type="button"
+                    className="category-colour-option" aria-label={`${colour.name} colour`} title={colour.name}
+                    aria-pressed={category.color.toLowerCase() === colour.value.toLowerCase()}
+                    onClick={() => setCategory({ ...category, color: colour.value })}>
+                    <span className="category-colour-swatch" style={{ backgroundColor: colour.value }} aria-hidden="true">
+                      {category.color.toLowerCase() === colour.value.toLowerCase() ? "✓" : ""}
+                    </span>
+                  </button>)}
+                </div>
+                <div className="category-colour-custom">
+                  <label htmlFor="category-custom-colour">Custom colour</label>
+                  <input id="category-custom-colour" type="color" aria-label="Category colour" value={category.color}
+                    onChange={(event) => setCategory({ ...category, color: event.currentTarget.value })} />
+                  <span className="category-colour-value">{category.color.toUpperCase()}</span>
+                </div>
+              </div>
             </div>
             </fieldset>
             <div className="modal-actions">

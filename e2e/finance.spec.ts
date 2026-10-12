@@ -61,6 +61,47 @@ const popupEditors = [
   { page: "Categories & Rules", add: "Add rule", field: "Merchant pattern", value: "Fictional popup merchant", select: "Rule category", save: "Save rule", command: "save_category_rule" },
 ];
 
+test("category colour palette works in create and edit popups with custom colours and busy protection", async ({ page }, testInfo) => {
+  await home(page);
+  await navigate(page, "Categories & Rules");
+  await page.getByRole("button", { name: "Add category", exact: true }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByRole("button", { name: "Sage colour" })).toHaveAttribute("aria-pressed", "true");
+  const blue = dialog.getByRole("button", { name: "Blue colour" });
+  await blue.focus();
+  await blue.press("Space");
+  await expect(blue).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByLabel("Category colour", { exact: true })).toHaveValue("#587ca6");
+  for (const swatch of await dialog.getByRole("group", { name: "Preset colours" }).getByRole("button").all()) {
+    const bounds = await swatch.boundingBox();
+    expect(bounds!.width).toBe(44);
+    expect(bounds!.height).toBe(44);
+  }
+  await dialog.getByLabel("Category name", { exact: true }).fill("Fictional palette");
+  await page.screenshot({ path: testInfo.outputPath("category-colour-create.png"), fullPage: true });
+  await page.evaluate(() => window.__pennyTest.hold("save_category"));
+  await dialog.getByRole("button", { name: "Save category", exact: true }).click();
+  await expect(blue).toBeDisabled();
+  await expect(dialog.getByLabel("Category colour", { exact: true })).toBeDisabled();
+  await page.evaluate(() => window.__pennyTest.release("save_category"));
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit Fictional palette", exact: true }).click();
+  await expect(blue).toHaveAttribute("aria-pressed", "true");
+  await dialog.getByLabel("Category colour", { exact: true }).fill("#336699");
+  await expect(blue).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.getByText("#336699", { exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("category-colour-edit.png"), fullPage: true });
+  await dialog.getByRole("button", { name: "Save category", exact: true }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Edit Fictional palette", exact: true }).click();
+  await expect(dialog.getByLabel("Category colour", { exact: true })).toHaveValue("#336699");
+  await expect(blue).toHaveAttribute("aria-pressed", "false");
+  await dialog.getByRole("button", { name: "Terracotta colour" }).click();
+  await dialog.getByRole("button", { name: "Cancel category edit", exact: true }).click();
+  await page.getByRole("button", { name: "Edit Fictional palette", exact: true }).click();
+  await expect(dialog.getByLabel("Category colour", { exact: true })).toHaveValue("#336699");
+});
+
 for (const editor of popupEditors) {
   test(`${editor.add} popup traps focus, retains failed saves and blocks closing while saving`, async ({ page }, testInfo) => {
     await home(page);

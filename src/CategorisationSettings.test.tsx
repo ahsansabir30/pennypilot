@@ -98,6 +98,29 @@ describe("categorisation management", () => {
     expect(changed).toHaveBeenCalled();
   });
 
+  it("selects palette colours, retains custom colours on failure and resets cancelled additions", async () => {
+    mock.mockImplementation(async (command) => {
+      if (command === "list_category_rules") return [rule];
+      throw "Fictional save failed.";
+    });
+    render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "Add category" }));
+    expect(screen.getByRole("button", { name: "Sage colour" }).getAttribute("aria-pressed")).toBe("true");
+    fireEvent.click(screen.getByRole("button", { name: "Blue colour" }));
+    expect(screen.getByRole("button", { name: "Sage colour" }).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getByRole("button", { name: "Blue colour" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByLabelText("Category colour")).toHaveProperty("value", "#587ca6");
+    fireEvent.change(screen.getByLabelText("Category colour"), { target: { value: "#123456" } });
+    expect(screen.getByRole("button", { name: "Blue colour" }).getAttribute("aria-pressed")).toBe("false");
+    fireEvent.change(screen.getByLabelText("Category name"), { target: { value: "Fictional category" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save category" }));
+    expect(await screen.findByRole("alert")).toHaveProperty("textContent", "Fictional save failed.");
+    expect(screen.getByLabelText("Category colour")).toHaveProperty("value", "#123456");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel category edit" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add category" }));
+    expect(screen.getByRole("button", { name: "Sage colour" }).getAttribute("aria-pressed")).toBe("true");
+  });
+
   it("creates and edits rules with priority, method and enablement", async () => {
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
     fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
