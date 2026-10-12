@@ -65,7 +65,14 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
         const percent = goal.progressPence / goal.targetPence * 100;
         const remaining = Math.max(0, goal.targetPence - goal.progressPence);
         const extra = Math.max(0, goal.progressPence - goal.targetPence);
-        return <li key={goal.id}>
+        return <li className="savings-card" key={goal.id}>
+          <button className="savings-card-open" type="button" aria-label={`Edit goal ${goal.name}`} aria-haspopup="dialog" disabled={busy}
+            onClick={() => { setError(""); setShowForm(true); setForm({
+              id: goal.id, name: goal.name, target: (goal.targetPence / 100).toFixed(2), progress: (goal.progressPence / 100).toFixed(2),
+              targetDate: goal.targetDate ?? "", notes: goal.notes,
+            }); }} />
+          <button type="button" className="destructive-action record-delete savings-delete" aria-label={`Delete goal ${goal.name}`}
+            title={`Delete ${goal.name}`} disabled={busy} onClick={() => setDeleting(goal.id)}><span aria-hidden="true">×</span></button>
           <h3>{goal.name}</h3>
           <p>{formatPence(goal.progressPence)} / {formatPence(goal.targetPence)} target</p>
           <progress aria-label={`${goal.name} savings progress`} value={Math.min(100, percent)} max={100} />
@@ -73,13 +80,6 @@ export default function SavingsGoals({ onChanged, headingRef }: { onChanged?: ()
           {extra > 0 && <p>Overfunded by {formatPence(extra)}; progress is retained.</p>}
           {goal.targetDate && <p>Target date: <time dateTime={goal.targetDate}>{goal.targetDate}</time></p>}
           {goal.notes && <details className="calculation-details"><summary>Notes</summary><p className="goal-notes">{goal.notes}</p></details>}
-          <div className="management-row-actions">
-          <button type="button" aria-label={`Edit goal ${goal.name}`} disabled={busy} onClick={() => { setError(""); setShowForm(true); setForm({
-            id: goal.id, name: goal.name, target: (goal.targetPence / 100).toFixed(2), progress: (goal.progressPence / 100).toFixed(2),
-            targetDate: goal.targetDate ?? "", notes: goal.notes,
-          }); }}>Edit</button>
-          <button type="button" className="destructive-action" aria-label={`Delete goal ${goal.name}`} disabled={busy} onClick={() => setDeleting(goal.id)}>Delete</button>
-          </div>
         </li>;
       })}
     </ul>

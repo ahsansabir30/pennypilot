@@ -15,11 +15,25 @@ describe("categorisation management", () => {
   });
   afterEach(cleanup);
 
+  it("shows one panel at a time and preserves independent search values across tabs", async () => {
+    render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
+    expect(screen.getByRole("tabpanel", { name: "Categories" })).toBeTruthy();
+    expect(screen.queryByRole("tabpanel", { name: "Rules" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Search categories"), { target: { value: "Gro" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+    await screen.findByRole("button", { name: "Edit rule north market" });
+    expect(screen.queryByRole("button", { name: "Add category" })).toBeNull();
+    fireEvent.change(screen.getByLabelText("Search rules"), { target: { value: "north" } });
+    fireEvent.click(screen.getByRole("tab", { name: "Categories" }));
+    expect(screen.getByLabelText("Search categories")).toHaveProperty("value", "Gro");
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+    expect(screen.getByLabelText("Search rules")).toHaveProperty("value", "north");
+  });
   it("combines case-insensitive category search and accounting type without changing records", async () => {
     render(<CategorisationSettings categories={[...categories,
       { id: 2, name: "Salary", categoryType: "income", color: "#123456" },
     ]} onChanged={vi.fn()} />);
-    await screen.findByRole("button", { name: "Edit rule north market" });
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("list_category_rules"));
     fireEvent.change(screen.getByLabelText("Search categories"), { target: { value: "  GRO  " } });
     expect(screen.getByRole("button", { name: "Edit Groceries" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Edit Salary" })).toBeNull();
@@ -36,6 +50,7 @@ describe("categorisation management", () => {
     render(<CategorisationSettings categories={[...categories,
       { id: 2, name: "Salary", categoryType: "income", color: "#123456" },
     ]} onChanged={vi.fn()} />);
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
     await screen.findByRole("button", { name: "Edit rule north market" });
     fireEvent.change(screen.getByLabelText("Search rules"), { target: { value: "  SALARY " } });
     expect(screen.getByRole("button", { name: "Edit rule fictional pay" })).toBeTruthy();
@@ -55,9 +70,10 @@ describe("categorisation management", () => {
 
   it("uses short actions without explanatory disclosures or changing rule application", async () => {
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Delete Groceries" }).textContent).toBe("×");
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
     const edit = await screen.findByRole("button", { name: "Edit rule north market" });
     expect(edit.textContent).toBe("Edit");
-    expect(screen.getByRole("button", { name: "Delete Groceries" }).textContent).toBe("Delete");
     expect(screen.queryByText("How rules work")).toBeNull();
     expect(screen.queryByText(/Higher priority wins|Conflicting ties stay uncategorised/)).toBeNull();
     const apply = screen.getByRole("button", { name: "Apply rules to automatic transactions" });
@@ -69,7 +85,7 @@ describe("categorisation management", () => {
   it("edits category names and colours without changing the accounting type", async () => {
     const changed = vi.fn();
     render(<CategorisationSettings categories={categories} onChanged={changed} />);
-    await screen.findByRole("button", { name: "Edit rule north market" });
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("list_category_rules"));
     fireEvent.click(screen.getByRole("button", { name: "Edit Groceries" }));
     expect(screen.getByLabelText("Category type")).toHaveProperty("disabled", true);
     fireEvent.change(screen.getByLabelText("Category name"), { target: { value: "Food" } });
@@ -83,7 +99,8 @@ describe("categorisation management", () => {
 
   it("creates and edits rules with priority, method and enablement", async () => {
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
-    await screen.findByRole("button", { name: "Edit rule north market" });
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("list_category_rules"));
     fireEvent.click(screen.getByRole("button", { name: "Add rule" }));
     fireEvent.change(screen.getByLabelText("Merchant pattern"), { target: { value: "Coffee Shop" } });
     fireEvent.change(screen.getByLabelText("Rule category"), { target: { value: "1" } });
@@ -109,11 +126,12 @@ describe("categorisation management", () => {
       return undefined;
     });
     render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
-    await screen.findByRole("button", { name: "Edit rule north market" });
+    await waitFor(() => expect(mock).toHaveBeenCalledWith("list_category_rules"));
     fireEvent.click(screen.getByRole("button", { name: "Delete Groceries" }));
     expect(mock).not.toHaveBeenCalledWith("delete_category", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Confirm deletion" }));
     expect(await screen.findByRole("alert")).toHaveProperty("textContent", "This category is used by transactions or rules.");
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete rule north market" }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm deletion" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_category_rule", { ruleId: 5 }));

@@ -481,6 +481,7 @@ describe("financial dashboard", () => {
     expect(screen.getByText("Category conflict").closest("details")).toHaveProperty("open", false);
     expect(screen.queryByRole("button", { name: "Use rules for North Market" })).toBeNull();
     navigate("categories");
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Apply rules to automatic transactions" })).toHaveProperty("disabled", false));
     fireEvent.click(await screen.findByRole("button", { name: "Apply rules to automatic transactions" }));
     await screen.findByText("1 automatic transaction reclassified. Manual choices preserved.");

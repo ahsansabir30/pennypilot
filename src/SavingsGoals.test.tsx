@@ -23,8 +23,9 @@ describe("savings goals", () => {
   it("keeps concise actions accessible without calculation prose", async () => {
     render(<SavingsGoals />);
     const edit = await screen.findByRole("button", { name: "Edit goal Fictional rainy day" });
-    expect(edit.textContent).toBe("Edit");
-    expect(screen.getByRole("button", { name: "Delete goal Fictional rainy day" }).textContent).toBe("Delete");
+    expect(edit.textContent).toBe("");
+    expect(edit.getAttribute("aria-haspopup")).toBe("dialog");
+    expect(screen.getByRole("button", { name: "Delete goal Fictional rainy day" }).textContent).toBe("×");
     expect(screen.queryByText("Calculation details")).toBeNull();
     expect(screen.queryByText(/not a bank balance/)).toBeNull();
     expect(screen.queryByText("Manual progress. No money is moved.")).toBeNull();
@@ -94,6 +95,7 @@ describe("savings goals", () => {
   it("requires deliberate deletion confirmation", async () => {
     render(<SavingsGoals />);
     fireEvent.click(await screen.findByRole("button", { name: "Delete goal Fictional rainy day" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
     expect(mock).not.toHaveBeenCalledWith("delete_savings_goal", expect.anything());
     fireEvent.click(screen.getByRole("button", { name: "Confirm goal deletion" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_savings_goal", { goalId: 1 }));

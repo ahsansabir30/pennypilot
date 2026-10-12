@@ -25,6 +25,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   const [ruleSearch, setRuleSearch] = useState("");
   const [ruleStatus, setRuleStatus] = useState("");
   const [ruleCategory, setRuleCategory] = useState("");
+  const [tab, setTab] = useState<"categories" | "rules">("categories");
   const visibleCategories = categories.filter((item) =>
     item.name.toLocaleLowerCase().includes(categorySearch.trim().toLocaleLowerCase())
     && (!categoryType || item.categoryType === categoryType));
@@ -94,12 +95,24 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
   return (
     <section id="categorisation-panel" className="panel categorisation-panel" aria-labelledby="categorisation-title">
       <h2 id="categorisation-title" className="visually-hidden">Categories and rules</h2>
+      <div className="settings-tabs" role="tablist" aria-label="Categorisation sections">
+        {(["categories", "rules"] as const).map((id) => <button key={id} id={`settings-tab-${id}`} role="tab"
+          aria-selected={tab === id} aria-controls={`settings-page-${id}`} tabIndex={tab === id ? 0 : -1} disabled={busy}
+          onClick={() => { setTab(id); setPendingDelete(null); setError(""); setMessage(""); }}
+          onKeyDown={(event) => {
+            if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+            event.preventDefault();
+            const next = event.key === "Home" ? "categories" : event.key === "End" ? "rules" : id === "categories" ? "rules" : "categories";
+            setTab(next); setPendingDelete(null); setError(""); setMessage("");
+            document.getElementById(`settings-tab-${next}`)?.focus();
+          }}>{id === "categories" ? "Categories" : "Rules"}</button>)}
+      </div>
       {error && !editor && <p role="alert" className="form-message error">{error}</p>}
       {rulesError && <div role="alert" className="form-message error">{rulesError}
         <button type="button" disabled={busy} onClick={() => setRevision((value) => value + 1)}>Retry rules</button></div>}
       {message && <p role="status" className="policy-note">{message}</p>}
       <div className="categorisation-grid">
-        <div>
+        <div id="settings-page-categories" role="tabpanel" aria-labelledby="settings-tab-categories" hidden={tab !== "categories"}>
           <div className="management-heading">
           <h3>Categories</h3>
           <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setCategory(newCategory); setError(""); setEditor("category"); }}>Add category</button>
@@ -117,7 +130,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
               <span><i className="budget-category-dot" aria-hidden="true" style={{ background: item.color }} />{item.name}<small className="category-type">{item.categoryType}</small></span>
               <div className="management-row-actions">
                 <button type="button" aria-label={`Edit ${item.name}`} disabled={busy} onClick={() => { setCategory(item); setError(""); setEditor("category"); }}>Edit</button>
-                <button type="button" className="destructive-action" aria-label={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}>Delete</button>
+                <button type="button" className="destructive-action record-delete" aria-label={`Delete ${item.name}`} title={`Delete ${item.name}`} disabled={busy} onClick={() => setPendingDelete({ type: "category", id: item.id })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}
           </ul>
@@ -142,7 +155,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
             </div>
           </form></Modal>}
         </div>
-        <div>
+        <div id="settings-page-rules" role="tabpanel" aria-labelledby="settings-tab-rules" hidden={tab !== "rules"}>
           <div className="management-heading">
           <h3>Merchant rules</h3>
           <button className="add-transaction-button" type="button" disabled={busy || categories.length === 0} onClick={() => { setRule(newRule); setError(""); setEditor("rule"); }}>Add rule</button>
@@ -166,7 +179,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
               </span>
               <div className="management-row-actions">
                 <button disabled={busy} type="button" aria-label={`Edit rule ${item.pattern}`} onClick={() => { setRule({ ...item, categoryId: String(item.categoryId), priority: String(item.priority) }); setError(""); setEditor("rule"); }}>Edit</button>
-                <button disabled={busy} type="button" className="destructive-action" aria-label={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}>Delete</button>
+                <button disabled={busy} type="button" className="destructive-action record-delete" aria-label={`Delete rule ${item.pattern}`} title={`Delete rule ${item.pattern}`} onClick={() => setPendingDelete({ type: "rule", id: item.id })}><span aria-hidden="true">×</span></button>
               </div>
             </li>)}
             {visibleRules.length === 0 && <li className="settings-empty">{rules.length === 0 ? "No rules yet." : "No matching rules."}</li>}
@@ -205,7 +218,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
         <button disabled={busy} type="button" onClick={() => void remove()}>Confirm deletion</button>
         <button disabled={busy} type="button" onClick={() => setPendingDelete(null)}>Cancel deletion</button>
       </div>}
-      <div className="rules-apply">
+      <div className="rules-apply" hidden={tab !== "rules"}>
       <p className="policy-note">Apply rule changes to existing automatic transactions. Manual choices stay unchanged.</p>
       <button aria-label="Apply rules to automatic transactions" disabled={busy || loading || Boolean(rulesError)} type="button" onClick={() => void perform(async () => {
         return await invoke<number>("reclassify_transactions");
