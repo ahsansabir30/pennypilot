@@ -4,6 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import "./App.css";
 import { validateNewPassphrase } from "./security";
 import Dashboard from "./Dashboard";
+import Brand from "./Brand";
 
 type WorkspaceStatus = "new" | "locked" | "unlocked";
 type FormMode = "create" | "unlock" | "recover";
@@ -93,12 +94,7 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            p
-          </span>
-          <span>PennyPilot</span>
-        </div>
+        <Brand />
         <span className="privacy-pill">
           <span className="privacy-dot" />
           Stored on this device

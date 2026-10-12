@@ -24,6 +24,23 @@ async function addExpense(page: Page, merchant = "Fictional Coffee Shop", amount
   await expect(page.getByText(merchant, { exact: true })).toBeVisible();
 }
 
+test("brand artwork loads under the app CSP and matches the browser icon", async ({ page }) => {
+  await home(page);
+  const mark = page.locator(".brand img");
+  await expect(mark).toHaveAttribute("src", "/pennypilot.svg");
+  await expect(page.locator('link[rel="icon"]')).toHaveAttribute("href", "/pennypilot.svg");
+  await expect(mark).toHaveAttribute("alt", "");
+  await expect.poll(() => mark.evaluate((image: HTMLImageElement) => image.complete && image.naturalWidth > 0)).toBe(true);
+  for (const width of [320, 768, 1180]) {
+    await page.setViewportSize({ width, height: 800 });
+    await expect(mark).toBeVisible();
+    const bounds = (await mark.boundingBox())!;
+    expect(bounds.width).toBe(32);
+    expect(bounds.height).toBe(32);
+    await expect(page.locator(".brand")).toHaveText("PennyPilot");
+  }
+});
+
 test("narrow transactions keep heading actions compact and filters in balanced rows", async ({ page }, testInfo) => {
   for (const width of [360, 620, 768]) {
     await page.setViewportSize({ width, height: 900 });

@@ -51,6 +51,28 @@ describe("workspace setup and access", () => {
     cleanup();
   });
 
+  it("keeps the same brand artwork through unlock and lock", async () => {
+    const { container } = render(<App />);
+    await screen.findByRole("heading", { name: "Unlock your workspace" });
+    function expectBrand() {
+      const mark = container.querySelector(".brand img");
+      expect(mark?.getAttribute("src")).toBe("/pennypilot.svg");
+      expect(mark?.getAttribute("alt")).toBe("");
+      expect(mark?.getAttribute("aria-hidden")).toBe("true");
+      expect(container.querySelector(".brand")?.textContent).toBe("PennyPilot");
+    }
+    expectBrand();
+    fireEvent.change(screen.getByLabelText("Passphrase"), {
+      target: { value: "a memorable long passphrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Unlock" }));
+    await screen.findByRole("heading", { name: "Overview" });
+    expectBrand();
+    fireEvent.click(screen.getByRole("button", { name: "Lock workspace" }));
+    await screen.findByRole("heading", { name: "Unlock your workspace" });
+    expectBrand();
+  });
+
   it("creates a workspace and clears the passphrase after success", async () => {
     invokeMock.mockResolvedValueOnce("new");
     invokeMock.mockResolvedValueOnce(undefined);

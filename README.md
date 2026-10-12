@@ -132,6 +132,8 @@ CSV import, custom accounts and recurring payment detection remain planned work.
 
 ## Development
 
+The welcome screen, workspace header and browser favicon share `public/pennypilot.svg`: a green-and-gold penny/compass mark with a P monogram. Desktop icons are generated from the same artwork. To regenerate them after changing the SVG, run `npm run tauri -- icon public/pennypilot.svg --output <temporary-directory>`, then copy only `32x32.png`, `128x128.png`, `128x128@2x.png`, `icon.icns` and `icon.ico` into `src-tauri/icons`.
+
 Prerequisites:
 
 - Node.js 24 and npm

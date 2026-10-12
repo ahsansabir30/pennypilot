@@ -18,6 +18,7 @@ import "./Dashboard.css";
 import CategorisationSettings from "./CategorisationSettings";
 import Budgets from "./Budgets";
 import SavingsGoals from "./SavingsGoals";
+import Brand from "./Brand";
 import PrivateData from "./PrivateData";
 import FinancialHighlights from "./FinancialHighlights";
 import { useWorkspacePage, workspacePages } from "./navigation";
@@ -263,10 +264,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
   return (
     <main className="app-shell finance-shell">
       <header className="topbar dashboard-topbar">
-        <div className="brand">
-          <span className="brand-mark" aria-hidden="true">p</span>
-          <span>PennyPilot</span>
-        </div>
+        <Brand />
         <div className="dashboard-actions">
           <span className="privacy-pill">
             <span className="privacy-dot" />

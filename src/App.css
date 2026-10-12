@@ -96,15 +96,10 @@ summary:focus-visible {
 }
 
 .brand-mark {
-  display: grid;
+  display: block;
   width: 32px;
   height: 32px;
-  place-items: center;
-  border-radius: 11px;
-  background: #255842;
-  color: #fff;
-  font-size: 21px;
-  font-weight: 800;
+  flex-shrink: 0;
 }
 
 .privacy-pill {
