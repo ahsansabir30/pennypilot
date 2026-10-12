@@ -371,6 +371,7 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   const budgetPreview = page.getByRole("article", { name: "Budgets", exact: true });
   await expect(page.getByText("Recorded activity · GBP. Net cash flow is not an account balance.", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Expenses less refunds", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("Refunds offset their original category", { exact: true })).toHaveCount(0);
   await expect(budgetPreview).toContainText("£108.00 of £100.00");
   await expect(budgetPreview.getByText("1 category", { exact: true })).toBeVisible();
   const budgetTitle = await budgetPreview.getByRole("heading", { name: "Budgets", exact: true }).boundingBox();

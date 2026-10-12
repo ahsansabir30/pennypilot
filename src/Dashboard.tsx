@@ -385,7 +385,6 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                   <div className="panel-heading">
                     <div>
                       <h2>Spending by category</h2>
-                      <p>Refunds offset their original category</p>
                     </div>
                     <span className="category-total">{formatPence(monthly.expensePence)}</span>
                   </div>

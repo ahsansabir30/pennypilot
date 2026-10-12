@@ -45,7 +45,7 @@ Dashboard totals and transaction results are tied to their requested period, fil
 
 ## Financial data and accounting
 
-The Overview spending card omits the “Expenses less refunds” subtitle; its amount still nets refunds according to the accounting rules below.
+The Overview spending card and category breakdown omit the refund-accounting subtitles; their amounts still net refunds according to the accounting rules below.
 
 - Accounts and categories are stored in the encrypted workspace. Accounts use GBP.
 - Transaction amounts are positive integer pence (for example, `1234` is £12.34); direction is represented by the transaction kind, not a negative amount.
