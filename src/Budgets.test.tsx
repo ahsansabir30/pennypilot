@@ -55,6 +55,7 @@ describe("monthly budgets", () => {
     await screen.findByRole("list", { name: "Category budgets" });
     fireEvent.click(await screen.findByRole("button", { name: "Edit budget for Fictional Food" }));
     expect(screen.getByRole("heading", { name: "Edit budget limit" })).toBeTruthy();
+    expect(screen.getByRole("dialog").textContent).not.toContain("2024-02");
     expect(screen.getByLabelText("Monthly limit (GBP)")).toBe(document.activeElement);
     expect(screen.getByLabelText("Monthly limit (GBP)")).toHaveProperty("value", "100.00");
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "250.01" } });
@@ -74,6 +75,7 @@ describe("monthly budgets", () => {
     render(<Budgets month="2024-02" categories={categories} refreshKey={0} />);
     await screen.findByRole("heading", { name: "Fictional Food" });
     fireEvent.click(screen.getByRole("button", { name: "Add budget" }));
+    expect(screen.getByRole("dialog").textContent).not.toContain("2024-02");
     fireEvent.change(screen.getByLabelText("Budget category"), { target: { value: "1" } });
     fireEvent.change(screen.getByLabelText("Monthly limit (GBP)"), { target: { value: "1.001" } });
     fireEvent.click(screen.getByRole("button", { name: "Save monthly budget" }));

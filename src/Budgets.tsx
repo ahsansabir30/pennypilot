@@ -126,9 +126,6 @@ export default function Budgets({ month, categories, refreshKey, onChanged, head
     {showForm && <Modal title={editing ? "Edit budget limit" : "Add budget"} busy={busy} onClose={() => { setShowForm(false); setError(""); }}>
     {displayedError && <p role="alert">{displayedError}</p>}
     <form className="transaction-form budget-limit-form" onSubmit={(event) => void save(event)}>
-      <div className="budget-editor-heading">
-        <span>{month}</span>
-      </div>
       <div className="transaction-form-grid budget-limit-fields">
         <label>Budget category<select required disabled={busy} value={form.categoryId} onChange={(event) => setForm({ ...form, categoryId: event.currentTarget.value })}>
           <option value="">Choose an expense category</option>
