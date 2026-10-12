@@ -188,7 +188,6 @@ function App() {
                   autoComplete={
                     mode === "unlock" ? "current-password" : "new-password"
                   }
-                  autoFocus
                   id="passphrase"
                   onChange={(event) => setPassphrase(event.currentTarget.value)}
                   type="password"

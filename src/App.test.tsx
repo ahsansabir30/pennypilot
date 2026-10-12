@@ -64,6 +64,14 @@ describe("workspace setup and access", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 
+  it("does not automatically focus the passphrase field", async () => {
+    render(<App />);
+    await screen.findByRole("heading", { name: "Unlock your workspace" });
+    expect(screen.getByLabelText("Passphrase").hasAttribute("autofocus")).toBe(
+      false,
+    );
+  });
+
   it("keeps the same brand artwork through unlock and lock", async () => {
     const { container } = render(<App />);
     await screen.findByRole("heading", { name: "Unlock your workspace" });
