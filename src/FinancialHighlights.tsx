@@ -41,8 +41,14 @@ export default function FinancialHighlights({ month, refreshKey }: {
   return <section className="planning-grid" aria-label="Budget and savings overview">
     <article className="panel planning-panel" aria-labelledby="budget-preview-title">
       <div className="panel-heading">
-        <h2 id="budget-preview-title">Budgets</h2>
-        {!!current?.rows.length && <a className="text-button" href="#/budgets">View budgets</a>}
+        <div className="preview-heading">
+          <h2 id="budget-preview-title">Budgets</h2>
+          {!!current?.rows.length && <p className="preview-count">{current.rows.length} {current.rows.length === 1 ? "category" : "categories"}</p>}
+        </div>
+        {!!current?.rows.length && <div className="preview-heading-actions">
+          <a className="text-button" href="#/budgets">View budgets</a>
+          {overLimitCount > 0 && <p className="preview-over-limit plan-status over">{overLimitCount} over limit</p>}
+        </div>}
       </div>
       {budgetError ? <div className="preview-error" role="alert">{budgetError}
         <button type="button" className="text-button" onClick={() => setBudgetRetry((value) => value + 1)}>Retry budget overview</button>
@@ -51,9 +57,7 @@ export default function FinancialHighlights({ month, refreshKey }: {
           <strong>No budgets this month.</strong>
           <a className="lock-button" href="#/budgets">Set your first budget</a>
         </div> : <>
-          <div className="budget-preview-summary"><span>{current.rows.length} {current.rows.length === 1 ? "category" : "categories"}</span>
-            {overLimitCount > 0 && <span className="plan-status over">{overLimitCount} over limit</span>}</div>
-          <ul className="preview-list budget-preview-list">
+          <ul className="preview-list planning-preview-list">
             {previewBudgets.map((row) => {
               const used = BigInt(row.usedPence), limit = BigInt(row.limitPence);
               const over = used > limit;
@@ -72,7 +76,10 @@ export default function FinancialHighlights({ month, refreshKey }: {
     </article>
     <article className="panel planning-panel" aria-labelledby="goal-preview-title">
       <div className="panel-heading">
-        <h2 id="goal-preview-title">Savings</h2>
+        <div className="preview-heading">
+          <h2 id="goal-preview-title">Savings</h2>
+          {!!goals?.length && <p className="preview-count">{goals.length} {goals.length === 1 ? "goal" : "goals"}</p>}
+        </div>
         {!!goals?.length && <a className="text-button" href="#/savings">View goals</a>}
       </div>
       {goalError ? <div className="preview-error" role="alert">{goalError}
@@ -82,8 +89,7 @@ export default function FinancialHighlights({ month, refreshKey }: {
           <strong>No savings goals yet.</strong>
           <a className="lock-button" href="#/savings">Create your first goal</a>
         </div> : <>
-          <p className="preview-caption">Entered progress · Not a bank balance</p>
-          <ul className="preview-list">
+          <ul className="preview-list planning-preview-list">
             {goals.slice(0, 3).map((goal) => <li key={goal.id}>
               <div className="preview-row"><strong>{goal.name}</strong><span className="plan-status">
                 {goal.progressPence >= goal.targetPence ? "Target reached" : `${Math.floor(goal.progressPence / goal.targetPence * 1000) / 10}% saved`}</span></div>

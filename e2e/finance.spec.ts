@@ -342,6 +342,10 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   const budgetPreview = page.getByRole("article", { name: "Budgets", exact: true });
   await expect(budgetPreview).toContainText("£108.00 of £100.00");
   await expect(budgetPreview.getByText("1 category", { exact: true })).toBeVisible();
+  const budgetTitle = await budgetPreview.getByRole("heading", { name: "Budgets", exact: true }).boundingBox();
+  const categoryCount = await budgetPreview.getByText("1 category", { exact: true }).boundingBox();
+  expect(categoryCount!.x).toBe(budgetTitle!.x);
+  expect(categoryCount!.y - budgetTitle!.y - budgetTitle!.height).toBeLessThanOrEqual(8);
   await expect(budgetPreview.getByText("1 over limit", { exact: true })).toBeVisible();
   await expect(budgetPreview.getByText(/Recorded through|history may be incomplete|Expenses less refunds/)).toHaveCount(0);
   const previewRow = budgetPreview.getByRole("listitem");
@@ -365,6 +369,13 @@ test("planning and settings layouts keep concise actions and expandable safeguar
   await page.keyboard.press("Escape");
   await expect(editGoal).toBeFocused();
   await checkLayout("savings");
+  await navigate(page, "Overview");
+  const savingsPreview = page.getByRole("article", { name: "Savings", exact: true });
+  await expect(savingsPreview.getByText("Entered progress · Not a bank balance", { exact: true })).toHaveCount(0);
+  await expect(savingsPreview.getByText("1 goal", { exact: true })).toBeVisible();
+  await expect(savingsPreview.getByRole("listitem")).toContainText("£0.00 of £100.00");
+  expect(await savingsPreview.getByRole("list").getAttribute("class")).toBe(await budgetPreview.getByRole("list").getAttribute("class"));
+  await checkLayout("overview-savings");
 
   await navigate(page, "Categories & Rules");
   const categoriesHeading = await page.getByRole("heading", { name: "Categories", exact: true }).boundingBox();

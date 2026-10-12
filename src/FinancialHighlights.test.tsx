@@ -48,6 +48,14 @@ describe("dashboard financial highlights", () => {
     expect(await screen.findByText("0% saved")).toBeTruthy();
     expect(screen.getByText("£100.00 to go")).toBeTruthy();
     expect(screen.queryByText(/Recorded through|history may be incomplete|Expenses less refunds/)).toBeNull();
+    expect(screen.queryByText("Entered progress · Not a bank balance")).toBeNull();
+    const budgetHeading = screen.getByRole("heading", { name: "Budgets" }).parentElement;
+    expect(budgetHeading?.textContent).toBe("Budgets1 category");
+    const savingsHeading = screen.getByRole("heading", { name: "Savings" }).parentElement;
+    expect(savingsHeading?.textContent).toBe("Savings1 goal");
+    const budgetList = within(screen.getByRole("article", { name: "Budgets" })).getByRole("list");
+    const savingsList = within(screen.getByRole("article", { name: "Savings" })).getByRole("list");
+    expect(budgetList.className).toBe(savingsList.className);
     expect(screen.queryByText("Private note")).toBeNull();
   });
 
