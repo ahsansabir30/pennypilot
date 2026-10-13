@@ -2,7 +2,9 @@
 
 PennyPilot is a local-first UK personal finance desktop app. Prioritise financial
 correctness, privacy, clear interactions and maintainability. Use README.md for
-detailed accounting, workspace security, export and restore contracts.
+detailed accounting, workspace security, export and restore contracts;
+docs/architecture/SAD.md for architecture; docs/development.md for contributor
+workflow; and docs/deployment.md for CI and release boundaries.
 
 ## Approved architecture
 

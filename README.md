@@ -1,6 +1,22 @@
 # PennyPilot
 
-PennyPilot is a local-first personal finance and subscription tracker for the UK. It is being built as a desktop app and starts with a secure local workspace; financial data is not fabricated and the app does not connect to banks.
+PennyPilot is a local-first UK personal-finance desktop app for recording transactions, reviewing spending, setting budgets, tracking explicitly entered savings progress, and keeping financial records encrypted on the user's device. It does not connect to banks, upload financial records, or fabricate transactions. CSV import, custom account management, and recurring/subscription detection are planned, not implemented.
+
+## Documentation
+
+- [Developer workflow](docs/development.md): setup, commands, tests, code expectations, and feature workflow.
+- [Deployment and release](docs/deployment.md): CI, desktop packages, release safety, rollback, and operational gaps.
+- [Software Architecture Document](docs/architecture/SAD.md): architecture, data/security design, diagrams, key flows, and decisions.
+
+## What is implemented
+
+- Encrypted local workspace creation, unlock, lock, and same-device passphrase recovery.
+- Manual transactions, filtering/search, deterministic merchant rules, editable categories, monthly budgets, and savings goals.
+- Recorded-activity summaries and trends; expenses and refunds are netted for spending, while transfers are excluded.
+- Consent-based plaintext CSV export and independently encrypted logical backup/restore.
+- Six dedicated pages: Overview, Transactions, Budgets, Savings, Categories & Rules, and Export & Backup.
+
+The app currently supports GBP. A new workspace has a main GBP account and starter categories, but no sample transactions. Savings progress is entered by the user and does not move or reserve money. Net cash flow and empty periods are not bank balances or evidence that a bank account has no activity.
 
 ## Architecture
 
@@ -118,7 +134,7 @@ SQLite/SQLCipher supports consistent read transactions and backup facilities. Pe
 
 Version 1 backups accept only schema 5 and GBP. The JSON envelope contains a format/version, fixed KDF/cipher labels, random 16-byte salt, random 24-byte nonce and hex ciphertext. The authenticated payload is encrypted using **XChaCha20-Poly1305**; the independent backup passphrase is derived with **Argon2id** (64 MiB memory, three passes, one lane, 32-byte key). Encryption is mandatory; there is no plaintext-backup option. A backup passphrase must have 12–1024 characters. Passphrases/keys are not stored inside the backup; serialized plaintext and derived key buffers are zeroized where practical. Losing the backup passphrase makes that file unrecoverable—even with the workspace OS recovery credential.
 
-Restore procedure:
+### Restore procedure
 
 1. Unlock the destination workspace. On another device, create a new local workspace first; its unlock passphrase and recovery credential remain its own.
 2. Paste the absolute local `.ppbackup` file path and enter that file's backup passphrase. Review the replacement warning, check the consent box and type **RESTORE**.
@@ -154,6 +170,37 @@ Opening the Vite URL in an ordinary browser does not provide access to native wo
 
 The **Dark mode** switch in the welcome and workspace headers changes the appearance of every page and record popup. PennyPilot follows the system appearance until you choose light or dark; that choice is stored locally as a non-financial preference and survives reloads and workspace locking. If preference storage is unavailable, the switch still works for the current session and explains that the choice could not be saved. Transaction search fields and budget transaction buttons use the same theme colours, with padded search text and visible keyboard focus.
 
+No application `.env` file or application secret is required for local development. `TAURI_DEV_HOST` is an optional Vite/Tauri development setting for remote-device HMR; `CI` is read by Playwright to forbid focused tests in CI. See [environment and configuration details](docs/development.md#environment-and-secrets).
+
+## Project structure
+
+```text
+src/                 React pages, shared UI, finance helpers, and frontend tests
+e2e/                 Playwright journeys and fictional Tauri IPC harness
+src-tauri/src/       Rust commands, finance rules, encrypted storage, backup/restore
+src-tauri/           Tauri capabilities, icons, configuration, and Rust lockfile
+public/              Static branding assets
+scripts/             Verification and guarded publishing scripts
+.github/workflows/   GitHub Actions verification and package workflows
+docs/                Developer, deployment, and architecture guides
+```
+
+Useful commands:
+
+| Command | Purpose |
+| --- | --- |
+| `npm ci` | Install locked frontend dependencies. |
+| `npm run tauri dev` | Run the native desktop app in development. |
+| `npm run lint` | Run ESLint. |
+| `npm run typecheck` | Type-check frontend and E2E TypeScript. |
+| `npm test` | Run Vitest unit/component tests once. |
+| `npm run test:e2e` | Run Chromium Playwright desktop and mobile browser journeys. |
+| `npm run build` | Type-check and build the production frontend. |
+| `npm run tauri build` | Build the frontend and native desktop bundles for the host OS. |
+| `./scripts/verify.sh` | Run the full local verification gate used by CI. |
+
+The detailed command inventory, per-platform prerequisites, and troubleshooting steps are in the [developer guide](docs/development.md).
+
 Run the project verification gate:
 
 ```sh
@@ -162,7 +209,7 @@ Run the project verification gate:
 
 The gate runs frontend linting, type-checking, unit and Playwright tests, a high-severity dependency audit and build; Rust formatting, Clippy and tests; and a Tauri desktop build. GitHub Actions installs Chromium (including Linux dependencies) and runs the same gate on macOS, Windows, and Linux. `scripts/publish-change.sh` refuses to publish unless this executable verification script succeeds.
 
-To create Windows and Linux installers, push to `feat/desktop-foundation` or run the **Desktop packages** workflow manually from the GitHub Actions tab once it is available on the default branch. It builds native x64 packages on Windows and Ubuntu and uploads them as workflow artifacts for 14 days; these unsigned packages are for testing and private distribution, not public release.
+Desktop packages are built by the **CI** workflow only when a maintainer manually dispatches it from `main`, selects all platforms, and requests package builds. The package matrix depends on the complete macOS, Windows, and Linux verification matrix succeeding in that run; pushes, pull requests, and dispatches from other branches never package automatically. The package-build checkbox records intent before verification, not a separate human approval after checks. Required-reviewer environment protection is not available for this private repository on its current GitHub plan; strict post-check approval requires enabling that protection through a supported plan or repository configuration. The workflow builds a macOS DMG, Windows x64 MSI and NSIS, and Linux x64 AppImage, DEB and RPM, then uploads each platform's outputs as separate workflow artifacts for 14 days. Packages are unsigned and intended for testing/private distribution, not public release. See the [deployment guide](docs/deployment.md) for the exact workflow, limitations, and release checklist.
 
 Run browser workflows separately with `npm run test:e2e`. Chromium desktop and mobile projects build the production frontend and use a dedicated Vite preview server on `127.0.0.1:1422` with isolated browser contexts; an existing server is not reused. The harness serves the configured Tauri CSP as an HTTP response header, freezes `Object.prototype` and asserts no CSP violations in normal workflows. Failure traces and results stay under `node_modules/.tmp/playwright-results`. On Linux, install browser prerequisites with `npx playwright install --with-deps chromium`.
 
@@ -171,3 +218,11 @@ Browser tests exercise the real React interface with a strict, stateful, fiction
 ## Privacy and test data
 
 Use fictional data in development and automated tests. Never commit real statements, database files, exports, backups, secrets, or passphrases. CSV exports are plaintext and require deliberate disclosure consent; backups are always independently passphrase-encrypted. The publishing script rejects database files, key files and `.ppbackup` files.
+
+## Troubleshooting
+
+- **The app says to open it on desktop:** native workspace commands need Tauri. Start the app with `npm run tauri dev`; opening the Vite URL in a regular browser intentionally does not expose passphrase or workspace operations.
+- **Linux native build fails:** install the Tauri/WebKitGTK system packages and Playwright browser dependencies described in the [developer guide](docs/development.md#platform-prerequisites-and-troubleshooting).
+- **Playwright cannot start its preview server:** check whether port `1422` is available. The configured test server uses `--strictPort` and does not reuse an existing server.
+- **Passphrase recovery is unavailable:** recovery depends on the OS credential store on the device where the workspace was created. It is not a cloud reset service; retain a separately encrypted backup and its backup passphrase.
+- **Installer is blocked by the OS or unsigned:** CI packages are unsigned testing artifacts. They are not signed/notarized public releases; do not bypass platform security warnings for financial data you do not trust.
