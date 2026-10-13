@@ -94,8 +94,8 @@ export default function PrivateData({ month, accounts, categories, search, kind,
         Source dates use YYYY-MM-DD. All amounts are positive; kind distinguishes expenses, income, refunds and transfers.
         Spreadsheet-sensitive cells are prefixed with an apostrophe. CSV is a report, not a restorable backup.</p></details>
       <div className="transaction-form-grid">
-        <label>Export from (inclusive)<input required type="date" value={scope.from} onChange={(event) => setScope({ ...scope, from: event.currentTarget.value })} /></label>
-        <label>Export through (inclusive)<input required type="date" value={scope.to} onChange={(event) => setScope({ ...scope, to: event.currentTarget.value })} /></label>
+        <label>Export from (inclusive)<input required type="date" min="1000-01-01" max="9999-12-31" value={scope.from} onChange={(event) => setScope({ ...scope, from: event.currentTarget.value })} /></label>
+        <label>Export through (inclusive)<input required type="date" min="1000-01-01" max="9999-12-31" value={scope.to} onChange={(event) => setScope({ ...scope, to: event.currentTarget.value })} /></label>
         <label>Export account<select value={scope.accountId} onChange={(event) => setScope({ ...scope, accountId: event.currentTarget.value })}>
           <option value="">All accounts</option>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}
         </select></label>

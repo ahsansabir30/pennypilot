@@ -290,7 +290,7 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
             <h1 id="dashboard-title" ref={pageHeadingRef} tabIndex={-1}>{pageLabel}</h1>
             {["overview", "transactions", "budgets", "backup"].includes(activePage) && <label className="month-picker">
               <span>Month</span>
-              <input aria-label="Dashboard month" type="month" value={month}
+              <input aria-label="Dashboard month" type="month" min="1000-01" max="9999-12" value={month}
                 onChange={(event) => { setMonth(event.currentTarget.value || currentMonth()); setPage(0); }} />
             </label>}
           </div>
@@ -416,7 +416,10 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
               </section>}
 
               {activePage === "overview" && <div className="overview-activity panel">
-                <h2>Recorded transactions</h2>
+                <div>
+                  <h2>Recorded transactions</h2>
+                  <p>Search, filter and manage your recorded income, expenses and transfers.</p>
+                </div>
                 <a className="lock-button" href="#/transactions">View transactions</a>
               </div>}
               {activePage === "transactions" && <section className="panel transactions-panel" aria-labelledby="dashboard-title">
@@ -461,6 +464,8 @@ function Dashboard({ onLock, lockBusy = false, lockError = "" }: Props) {
                         Transaction date
                         <input
                           type="date"
+                          min="1000-01-01"
+                          max="9999-12-31"
                           value={form.transactionDate}
                           onChange={(event) => setForm({ ...form, transactionDate: event.currentTarget.value })}
                           required

@@ -127,7 +127,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           <button className="add-transaction-button" type="button" disabled={busy} onClick={() => { setCategory(newCategory); setError(""); setEditor("category"); }}>Add category</button>
           </div>
           <div className="settings-filters">
-            <label>Search categories<input type="search" value={categorySearch} placeholder="Category name"
+            <label>Search categories<input type="search" maxLength={60} value={categorySearch} placeholder="Category name"
               onChange={(event) => setCategorySearch(event.currentTarget.value)} /></label>
             <label>Category filter<select value={categoryType} onChange={(event) => setCategoryType(event.currentTarget.value)}>
               <option value="">All types</option><option value="expense">Expense</option><option value="income">Income</option>
@@ -188,7 +188,7 @@ export default function CategorisationSettings({ categories, onChanged }: Props)
           <button className="add-transaction-button" type="button" disabled={busy || categories.length === 0} onClick={() => { setRule(newRule); setError(""); setEditor("rule"); }}>Add rule</button>
           </div>
           <div className="settings-filters rules-filters">
-            <label>Search rules<input type="search" value={ruleSearch} placeholder="Merchant or category"
+            <label>Search rules<input type="search" maxLength={120} value={ruleSearch} placeholder="Merchant or category"
               onChange={(event) => setRuleSearch(event.currentTarget.value)} /></label>
             <label>Rule category filter<select value={ruleCategory} onChange={(event) => setRuleCategory(event.currentTarget.value)}>
               <option value="">All categories</option>

@@ -90,4 +90,14 @@ describe("private data management", () => {
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByLabelText("Restore backup passphrase")).toHaveProperty("value", "");
   });
+
+  it("enforces calendar boundaries on export date inputs", async () => {
+    render(<PrivateData {...props} />);
+    const fromInput = screen.getByLabelText("Export from (inclusive)");
+    const toInput = screen.getByLabelText("Export through (inclusive)");
+    expect(fromInput.getAttribute("min")).toBe("1000-01-01");
+    expect(fromInput.getAttribute("max")).toBe("9999-12-31");
+    expect(toInput.getAttribute("min")).toBe("1000-01-01");
+    expect(toInput.getAttribute("max")).toBe("9999-12-31");
+  });
 });

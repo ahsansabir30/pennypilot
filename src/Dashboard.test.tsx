@@ -488,4 +488,19 @@ describe("financial dashboard", () => {
     navigate("overview");
     await waitFor(() => expect(screen.getByText("Dining")).toBeTruthy());
   });
+
+  it("enforces calendar boundaries on date pickers and describes overview activity", async () => {
+    navigate("overview");
+    render(<Dashboard onLock={vi.fn()} />);
+    const monthPicker = await screen.findByLabelText("Dashboard month");
+    expect(monthPicker.getAttribute("min")).toBe("1000-01");
+    expect(monthPicker.getAttribute("max")).toBe("9999-12");
+    expect(screen.getByText("Search, filter and manage your recorded income, expenses and transfers.")).toBeTruthy();
+
+    navigate("transactions");
+    fireEvent.click(await screen.findByRole("button", { name: /Add transaction/ }));
+    const dateInput = screen.getByLabelText("Transaction date");
+    expect(dateInput.getAttribute("min")).toBe("1000-01-01");
+    expect(dateInput.getAttribute("max")).toBe("9999-12-31");
+  });
 });

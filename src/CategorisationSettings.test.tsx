@@ -168,4 +168,11 @@ describe("categorisation management", () => {
     fireEvent.click(screen.getByRole("button", { name: "Confirm deletion" }));
     await waitFor(() => expect(mock).toHaveBeenCalledWith("delete_category_rule", { ruleId: 5 }));
   });
+
+  it("enforces length limits on search filter inputs", async () => {
+    render(<CategorisationSettings categories={categories} onChanged={vi.fn()} />);
+    expect(screen.getByPlaceholderText("Category name")).toHaveProperty("maxLength", 60);
+    fireEvent.click(screen.getByRole("tab", { name: "Rules" }));
+    expect(screen.getByPlaceholderText("Merchant or category")).toHaveProperty("maxLength", 120);
+  });
 });
