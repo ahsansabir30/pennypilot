@@ -1,0 +1,37 @@
+
+# Python
+.venv/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+*.pyc
+
+# Node
+node_modules/
+dist/
+coverage/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Database and private user data
+*.db
+*.sqlite
+*.sqlite3
+private-data/
+bank-statements/
+uploads/
+exports/
+backups/
+data/
+
+# OS/editor
+.DS_Store
+.vscode/*.log
+
+.playwright-mcp
+.scannerwork

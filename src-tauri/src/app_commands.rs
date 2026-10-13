@@ -1,0 +1,33 @@
+// Shared by build.rs (ACL generation) and lib.rs tests (registration sync check).
+// Every command registered with `generate_handler!` must be listed here and
+// granted as `allow-<kebab-name>` in capabilities/default.json.
+pub(crate) const APP_COMMANDS: &[&str] = &[
+    "workspace_status",
+    "create_workspace_command",
+    "unlock_workspace_command",
+    "recover_workspace_command",
+    "lock_workspace",
+    "list_finance_data",
+    "list_transactions",
+    "create_transaction",
+    "update_transaction_category",
+    "delete_transaction",
+    "list_category_rules",
+    "save_category_rule",
+    "delete_category_rule",
+    "save_category",
+    "delete_category",
+    "reclassify_transactions",
+    "reset_transaction_category",
+    "list_budgets",
+    "save_budget",
+    "delete_budget",
+    "save_budget_preferences",
+    "list_savings_goals",
+    "save_savings_goal",
+    "delete_savings_goal",
+    "private_data_locations",
+    "export_private_transactions",
+    "create_private_backup",
+    "restore_private_backup",
+];
