@@ -1,6 +1,9 @@
 name: Desktop packages
 
 on:
+  push:
+    branches:
+      - feat/desktop-foundation
   workflow_dispatch:
 
 permissions:

@@ -162,7 +162,7 @@ Run the project verification gate:
 
 The gate runs frontend linting, type-checking, unit and Playwright tests, a high-severity dependency audit and build; Rust formatting, Clippy and tests; and a Tauri desktop build. GitHub Actions installs Chromium (including Linux dependencies) and runs the same gate on macOS, Windows, and Linux. `scripts/publish-change.sh` refuses to publish unless this executable verification script succeeds.
 
-To create Windows and Linux installers, run the **Desktop packages** workflow manually from the GitHub Actions tab. It builds native x64 packages on Windows and Ubuntu and uploads them as workflow artifacts for 14 days; these unsigned packages are for testing and private distribution, not public release.
+To create Windows and Linux installers, push to `feat/desktop-foundation` or run the **Desktop packages** workflow manually from the GitHub Actions tab once it is available on the default branch. It builds native x64 packages on Windows and Ubuntu and uploads them as workflow artifacts for 14 days; these unsigned packages are for testing and private distribution, not public release.
 
 Run browser workflows separately with `npm run test:e2e`. Chromium desktop and mobile projects build the production frontend and use a dedicated Vite preview server on `127.0.0.1:1422` with isolated browser contexts; an existing server is not reused. The harness serves the configured Tauri CSP as an HTTP response header, freezes `Object.prototype` and asserts no CSP violations in normal workflows. Failure traces and results stay under `node_modules/.tmp/playwright-results`. On Linux, install browser prerequisites with `npx playwright install --with-deps chromium`.
 
